@@ -1,0 +1,78 @@
+[
+  {
+    "in": "ስትመጣ የት ታርፋለህ?",
+    "expect_text_am": "ስትመጣ የት ታርፋለህ?",
+    "expect_has_alternatives": false,
+    "note": "ethiopic pass-through"
+  },
+  {
+    "in": "s3m1t'4 y1t6",
+    "expect_text_am": "ሲመጣ የት",
+    "expect_has_alternatives": false,
+    "note": "CAR-like concatenation decode"
+  },
+
+  {
+    "in": "yet",
+    "expect_text_am": "የት",
+    "expect_has_alternatives": false,
+    "note": "lexicon deterministic"
+  },
+  {
+    "in": "bota",
+    "expect_text_am": "ቦታ",
+    "expect_has_alternatives": false,
+    "note": "lexicon deterministic"
+  },
+  {
+    "in": "mn",
+    "expect_text_am": "ምን",
+    "expect_has_alternatives": false,
+    "note": "lexicon deterministic"
+  },
+  {
+    "in": "min",
+    "expect_text_am": "ምን",
+    "expect_has_alternatives": false,
+    "note": "lexicon deterministic"
+  },
+  {
+    "in": "yet bota mn",
+    "expect_text_am": "የት ቦታ ምን",
+    "expect_has_alternatives": false,
+    "note": "lexicon multiword"
+  },
+
+  {
+    "in": "yet tarfaleh",
+    "expect_has_alternatives": true,
+    "note": "latin chat input; morphology-heavy word should remain ambiguous"
+  },
+  {
+    "in": "S6n6",
+    "options": { "latin_mode": "strict" },
+    "expect_text_am": "ሽን",
+    "expect_has_alternatives": false,
+    "note": "strict: sh+n"
+  },
+  {
+    "in": "s6h6n6",
+    "options": { "latin_mode": "strict" },
+    "expect_text_am": "ስህን",
+    "expect_has_alternatives": false,
+    "note": "strict: s+h+n"
+  },
+  {
+    "in": "leh",
+    "expect_text_am": "ለህ",
+    "expect_has_alternatives": false,
+    "note": "auto: e->order1 makes leh deterministic"
+  },
+  {
+    "in": "lei",
+    "expect_text_am": "ሌ",
+    "expect_has_alternatives": false,
+    "note": "auto: ei->order5"
+  }
+  
+]

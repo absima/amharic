@@ -1,0 +1,36 @@
+base	variant	family_label	script_notes
+h		ሀ-family	mainstream h (young-generation default)
+h	1	ሐ-family	historical distinct
+h	2	ኀ-family	historical distinct
+l		ለ-family	
+m		መ-family	
+r		ረ-family	
+s		ሰ-family	mainstream s (young-generation default)
+s	1	ሠ-family	historical distinct
+sh		ሸ-family	
+q		ቀ-family	keep q (not k')
+b		በ-family	
+t		ተ-family	
+ch		ቸ-family	
+n		ነ-family	
+ny		ኘ-family	
+k		ከ-family	
+kh		ኸ-family	
+w		ወ-family	
+z		ዘ-family	
+zh		ዠ-family	
+y		የ-family	
+d		ደ-family	
+j		ጀ-family	
+g		ገ-family	
+t'		ጠ-family	ejective
+ch'		ጨ-family	ejective
+p'		ጰ-family	ejective
+ts'		ጸ-family	ejective (base family)
+ts'	1	ፀ-family	historical distinct
+f		ፈ-family	
+p		ፐ-family	
+v		ቨ-family	modern usage
+a		አ-family	vowel carrier
+a	1	ዐ-family	historical distinct vowel carrier
+

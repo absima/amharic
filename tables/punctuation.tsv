@@ -1,0 +1,8 @@
+ethiopic	name	recommended_ascii	notes
+፡	WORD SEPARATOR	" "	often treated as a word space; optional
+።	FULL STOP	.	
+፣	COMMA	,	
+፤	SEMICOLON	;	
+፥	COLON	:	
+፦	PREFACE COLON	::	or keep as ፦
+

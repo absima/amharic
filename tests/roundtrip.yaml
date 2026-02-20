@@ -1,0 +1,11 @@
+roundtrip_rules:
+  - name: ethiopic_to_car_to_ethiopic
+    must_hold: true
+  - name: car_to_ethiopic_to_car
+    must_hold: true
+
+constraints:
+  - order8_must_be_allowlisted: true
+  - tokens_must_match_regex: "^[a-z]+(')?([12])?[1-8]$"
+  - unknown_tokens_must_error: true
+

@@ -1,0 +1,354 @@
+{
+  "version": "am-ui-v1",
+  "locale": "am-ET",
+  "items": [
+    {
+      "key": "ui.auth.login",
+      "am": "ይግቡ",
+      "category": "auth",
+      "car": "y6g6b2"
+    },
+    {
+      "key": "ui.auth.logout",
+      "am": "ይውጡ",
+      "category": "auth",
+      "car": "y6w6t'2"
+    },
+    {
+      "key": "ui.auth.create_account",
+      "am": "መለያ ይፍጠሩ",
+      "category": "auth",
+      "car": "m1l1y4 y6f6t'1r2"
+    },
+    {
+      "key": "ui.auth.forgot_password",
+      "am": "የይለፍ ቃል ረስተዋል?",
+      "category": "auth",
+      "car": "y1y6l1f6 q4l6 r1s6t1w4l6?"
+    },
+    {
+      "key": "ui.form.submit",
+      "am": "ይላኩ",
+      "category": "form",
+      "car": "y6l4k2"
+    },
+    {
+      "key": "ui.form.save",
+      "am": "ያስቀምጡ",
+      "category": "form",
+      "car": "y4s6q1m6t'2"
+    },
+    {
+      "key": "ui.form.cancel",
+      "am": "ይሰርዙ",
+      "category": "form",
+      "car": "y6s1r6z2"
+    },
+    {
+      "key": "ui.form.continue",
+      "am": "ይቀጥሉ",
+      "category": "form",
+      "car": "y6q1t'6l2"
+    },
+    {
+      "key": "ui.status.loading",
+      "am": "በመጫን ላይ…",
+      "category": "status",
+      "car": "b1m1ch'4n6 l4y6…"
+    },
+    {
+      "key": "ui.status.processing",
+      "am": "በመሂድ ላይ…",
+      "category": "status",
+      "car": "b1m1h3d6 l4y6…"
+    },
+    {
+      "key": "ui.status.success",
+      "am": "በትክክል ተከናውኗል",
+      "category": "status",
+      "car": "b1t6k6k6l6 t1k1n4w6n8l6"
+    },
+    {
+      "key": "ui.error.generic",
+      "am": "ስህተት ተፈጥሯል",
+      "category": "error",
+      "car": "s6h6t1t6 t1f1t'6r8l6"
+    },
+    {
+      "key": "ui.error.required",
+      "am": "ይህ መስክ ያስፈልጋል",
+      "category": "error",
+      "car": "y6h6 m1s6k6 y4s6f1l6g4l6"
+    },
+    {
+      "key": "ui.error.invalid",
+      "am": "ትክክለኛ መረጃ ያስገቡ",
+      "category": "error",
+      "car": "t6k6k6l1ny4 m1r1j4 y4s6g1b2"
+    },
+    {
+      "key": "ui.error.try_again",
+      "am": "ሙከራ እንደገና ያድርጉ",
+      "category": "error",
+      "car": "m2k1r4 a6n6d1g1n4 y4d6r6g2"
+    },
+    {
+      "key": "ui.auth.password",
+      "am": "የይለፍ ቃል",
+      "category": "auth",
+      "car": "y1y6l1f6 q4l6"
+    },
+    {
+      "key": "ui.auth.enter_password",
+      "am": "የይለፍ ቃል ያስገቡ",
+      "category": "auth",
+      "car": "y1y6l1f6 q4l6 y4s6g1b2"
+    },
+    {
+      "key": "ui.auth.reset_password",
+      "am": "የይለፍ ቃል ዳግም ያቀናብሩ",
+      "category": "auth",
+      "car": "y1y6l1f6 q4l6 d4g6m6 y4q1n4b6r2"
+    },
+    {
+      "key": "ui.auth.verify",
+      "am": "ያረጋግጡ",
+      "category": "auth",
+      "car": "y4r1g4g6t'2"
+    },
+    {
+      "key": "ui.auth.session_expired",
+      "am": "ክፍለ-ጊዜ አልቋል",
+      "category": "auth",
+      "car": "k6f6l1-g3z5 a1l6q8l6"
+    },
+    {
+      "key": "ui.auth.please_login",
+      "am": "እባክዎ ይግቡ",
+      "category": "auth",
+      "car": "a6b4k6w7 y6g6b2"
+    },
+    {
+      "key": "ui.form.ok",
+      "am": "እሺ",
+      "category": "form",
+      "car": "a6sh3"
+    },
+    {
+      "key": "ui.form.confirm",
+      "am": "ያረጋግጡ",
+      "category": "form",
+      "car": "y4r1g4g6t'2"
+    },
+    {
+      "key": "ui.form.edit",
+      "am": "ያሻሽሉ",
+      "category": "form",
+      "car": "y4sh4sh6l2"
+    },
+    {
+      "key": "ui.form.update",
+      "am": "ያዘምኑ",
+      "category": "form",
+      "car": "y4z1m6n2"
+    },
+    {
+      "key": "ui.form.delete",
+      "am": "ይሰርዙ",
+      "category": "form",
+      "car": "y6s1r6z2"
+    },
+    {
+      "key": "ui.form.close",
+      "am": "ይዝጉ",
+      "category": "form",
+      "car": "y6z6g2"
+    },
+    {
+      "key": "ui.form.open",
+      "am": "ይክፈቱ",
+      "category": "form",
+      "car": "y6k6f1t2"
+    },
+    {
+      "key": "ui.form.select",
+      "am": "ይምረጡ",
+      "category": "form",
+      "car": "y6m6r1t'2"
+    },
+    {
+      "key": "ui.form.clear",
+      "am": "ያጽዱ",
+      "category": "form",
+      "car": "y4ts'6d2"
+    },
+    {
+      "key": "ui.form.apply",
+      "am": "ይተግብሩ",
+      "category": "form",
+      "car": "y6t1g6b6r2"
+    },
+    {
+      "key": "ui.status.loading_data",
+      "am": "መረጃ በመጫን ላይ…",
+      "category": "status",
+      "car": "m1r1j4 b1m1ch'4n6 l4y6…"
+    },
+    {
+      "key": "ui.status.please_wait",
+      "am": "እባክዎ ይጠብቁ",
+      "category": "status",
+      "car": "a6b4k6w7 y6t'1b6q2"
+    },
+    {
+      "key": "ui.status.saved",
+      "am": "መረጃው ተቀምጧል",
+      "category": "status",
+      "car": "m1r1j4w6 t1q1m6t'8l6"
+    },
+    {
+      "key": "ui.status.updated",
+      "am": "መረጃው ተሻሽሏል",
+      "category": "status",
+      "car": "m1r1j4w6 t1sh4sh6l8l6"
+    },
+    {
+      "key": "ui.status.sent",
+      "am": "ተልኳል",
+      "category": "status",
+      "car": "t1l6k8l6"
+    },
+    {
+      "key": "ui.status.completed",
+      "am": "ተጠናቋል",
+      "category": "status",
+      "car": "t1t'1n4q8l6"
+    },
+    {
+      "key": "ui.error.not_found",
+      "am": "አልተገኘም",
+      "category": "error",
+      "car": "a1l6t1g1ny1m6"
+    },
+    {
+      "key": "ui.error.access_denied",
+      "am": "መዳረሻ ተከልክሏል",
+      "category": "error",
+      "car": "m1d4r1sh4 t1k1l6k6l8l6"
+    },
+    {
+      "key": "ui.error.no_permission",
+      "am": "ፍቃድ የለም",
+      "category": "error",
+      "car": "f6q4d6 y1l1m6"
+    },
+    {
+      "key": "ui.error.invalid_format",
+      "am": "ቅርጸ-ቃሉ ልክ አይደለም",
+      "category": "error",
+      "car": "q6r6ts'1-q4l2 l6k6 a1y6d1l1m6"
+    },
+    {
+      "key": "ui.error.required_field",
+      "am": "ይህ መስክ ያስፈልጋል",
+      "category": "error",
+      "car": "y6h6 m1s6k6 y4s6f1l6g4l6"
+    },
+    {
+      "key": "ui.error.complete_all",
+      "am": "እባክዎ ሁሉንም ይሙሉ",
+      "category": "error",
+      "car": "a6b4k6w7 h2l2n6m6 y6m2l2"
+    },
+    {
+      "key": "ui.error.operation_failed",
+      "am": "ሂደቱ አልተሳካም",
+      "category": "error",
+      "car": "h3d1t2 a1l6t1s4k4m6"
+    },
+    {
+      "key": "ui.nav.home",
+      "am": "መነሻ",
+      "category": "nav",
+      "car": "m1n1sh4"
+    },
+    {
+      "key": "ui.nav.dashboard",
+      "am": "መቆጣጠሪያ",
+      "category": "nav",
+      "car": "m1q7t'4t'1r3y4"
+    },
+    {
+      "key": "ui.nav.settings",
+      "am": "ቅንብሮች",
+      "category": "nav",
+      "car": "q6n6b6r7ch6"
+    },
+    {
+      "key": "ui.nav.help",
+      "am": "እገዛ",
+      "category": "nav",
+      "car": "a6g1z4"
+    },
+    {
+      "key": "ui.nav.search",
+      "am": "ፍለጋ",
+      "category": "nav",
+      "car": "f6l1g4"
+    },
+    {
+      "key": "ui.nav.details",
+      "am": "ዝርዝር ይመልከቱ",
+      "category": "nav",
+      "car": "z6r6z6r6 y6m1l6k1t2"
+    },
+    {
+      "key": "ui.nav.show_more",
+      "am": "ተጨማሪ ያሳዩ",
+      "category": "nav",
+      "car": "t1ch'1m4r3 y4s4y2"
+    },
+    {
+      "key": "ui.nav.back",
+      "am": "ይመለሱ",
+      "category": "nav",
+      "car": "y6m1l1s2"
+    },
+    {
+      "key": "ui.common.yes",
+      "am": "አዎ",
+      "category": "common",
+      "car": "a1w7"
+    },
+    {
+      "key": "ui.common.no",
+      "am": "አይ",
+      "category": "common",
+      "car": "a1y6"
+    },
+    {
+      "key": "ui.common.optional",
+      "am": "አማራጭ",
+      "category": "common",
+      "car": "a1m4r4ch'6"
+    },
+    {
+      "key": "ui.common.required",
+      "am": "አስፈላጊ",
+      "category": "common",
+      "car": "a1s6f1l4g3"
+    },
+    {
+      "key": "ui.common.copy",
+      "am": "ይቅዱ",
+      "category": "common",
+      "car": "y6q6d2"
+    },
+    {
+      "key": "ui.common.download",
+      "am": "ያውርዱ",
+      "category": "common",
+      "car": "y4w6r6d2"
+    }
+  ]
+}

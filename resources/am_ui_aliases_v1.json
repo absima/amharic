@@ -1,0 +1,13 @@
+{
+  "version": "am-ui-aliases-v1",
+  "locale": "am-ET",
+  "items": [
+    { "alias": "ygbu", "key": "ui.auth.login" },
+    { "alias": "login", "key": "ui.auth.login" },
+    { "alias": "logout", "key": "ui.auth.logout" },
+
+    { "alias": "save", "key": "ui.form.save" },
+    { "alias": "submit", "key": "ui.form.submit" },
+    { "alias": "cancel", "key": "ui.form.cancel" }
+  ]
+}
