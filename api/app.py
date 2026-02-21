@@ -32,7 +32,7 @@ def _get_cors_origins() -> list[str]:
     raw = (os.getenv("CORS_ORIGINS") or "").strip()
     if not raw:
         # safe default for local dev; you can also choose to raise instead
-        return ["http://localhost:5050"]
+        return ["http://localhost:5173"]
 
     # JSON array support
     if raw.startswith("["):
