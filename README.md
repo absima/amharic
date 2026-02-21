@@ -32,7 +32,7 @@ It consists of:
 
 CAR encodes each Ethiopic character as:
 
-    <base><variant?><order>
+    <base><variant><order>
 
 Where:
 
