@@ -1,14 +1,12 @@
 
 import json
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from .ui_aliases import load_alias_map, canon_alias
+from .paths import data_path
 
-# Repo root (because resources/ is still at repo root for v0)
-ROOT = Path(__file__).resolve().parents[1]
+LEXICON_PATH = data_path("resources", "am_ui_v1.json")
 
-LEXICON_PATH = ROOT / "resources" / "am_ui_v1.json"
 LEXICON = json.loads(LEXICON_PATH.read_text(encoding="utf-8"))
 
 

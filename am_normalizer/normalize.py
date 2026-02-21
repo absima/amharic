@@ -16,11 +16,11 @@ import math
 import re
 import sys
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-ROOT = Path(__file__).resolve().parents[1]
-TABLES = ROOT / "tables"
+from .paths import data_path
+
+TABLES = data_path("tables")
 
 
 # Ethiopic basic block range (good enough for Amharic v0 work)

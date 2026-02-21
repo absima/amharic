@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import json
-from pathlib import Path
+from .paths import data_path
 
-ROOT = Path(__file__).resolve().parents[1]
-TABLES = ROOT / "tables"
-TESTS = ROOT / "tests"
+TABLES = data_path("tables")
+TESTS = data_path("tests")
+
 
 def read_tsv(path: Path):
     rows = []

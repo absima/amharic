@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 import sys
-from pathlib import Path
+from .paths import data_path
 
-ROOT = Path(__file__).resolve().parents[1]
-TABLES = ROOT / "tables"
+TABLES = data_path("tables")
 
 def read_tsv(path: Path):
     rows = []

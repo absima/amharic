@@ -1,0 +1,15 @@
+.venv
+.pytest_cache
+.vscode
+.env
+__pycache__
+.git
+*.pyc
+*.pyo
+*.pyd
+venv/
+web/node_modules/
+web/dist/
+dist/
+build/
+.DS_Store

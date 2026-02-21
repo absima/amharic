@@ -1,13 +1,9 @@
-#!/usr/bin/env python3
-import json
-import sys
+import json, sys
 from copy import deepcopy
-from pathlib import Path
+from am_normalizer.normalize import normalize  
+from am_normalizer.paths import data_path
 
-ROOT = Path(__file__).resolve().parents[1]
-LEXICON_PATH = ROOT / "resources" / "am_ui_v1.json"
-
-from am_normalizer.normalize import normalize  # type: ignore  # noqa: E402
+LEXICON_PATH = data_path("resources", "am_ui_v1.json")
 
 
 def main() -> int:

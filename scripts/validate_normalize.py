@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Validator for AN-v0 normalization tests.
 
@@ -11,12 +10,12 @@ Expects tests/normalize.json with entries like:
 from __future__ import annotations
 import json
 from pathlib import Path
+from am_normalizer.normalize import normalize  # type: ignore
 
 ROOT = Path(__file__).resolve().parents[1]
 TESTS = ROOT / "tests"
 
 # Import normalize.py without packaging
-from .normalize import normalize  # type: ignore
 
 
 def main():

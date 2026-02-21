@@ -12,9 +12,18 @@ dependencies = [
   "fastapi",
   "uvicorn[standard]",
   "pydantic",
-  "python-dotenv"
+  "python-dotenv",
 ]
 
+# --- setuptools: package discovery ---
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["am_normalizer*"]
+
+# --- setuptools: include non-.py data inside the wheel/sdist ---
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+# to include everything under am_normalizer/data/ in the built distribution
+am_normalizer = ["data/**/*"]

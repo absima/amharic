@@ -1,11 +1,8 @@
 import json
-from pathlib import Path
+from am_normalizer.normalize import normalize  
+from am_normalizer.paths import data_path
 
-ROOT = Path(__file__).resolve().parents[1]
-LEXICON = ROOT / "resources" / "am_ui_v1.json"
-
-# Make tools/ importable for the test environment
-from am_normalizer.normalize import normalize  # type: ignore  # noqa: E402
+LEXICON = data_path("resources", "am_ui_v1.json")
 
 
 def test_ui_lexicon_roundtrip_and_confidence():

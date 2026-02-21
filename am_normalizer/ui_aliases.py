@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
 from typing import Dict
 
-ROOT = Path(__file__).resolve().parents[1]
-ALIASES_PATH = ROOT / "resources" / "am_ui_aliases_v1.json"
+from .paths import data_path
+
+TABLES = data_path("tables")
+ALIASES_PATH = data_path("resources", "am_ui_aliases_v1.json")
 
 
 def canon_alias(s: str) -> str:
