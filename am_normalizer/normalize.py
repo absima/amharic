@@ -116,10 +116,28 @@ def _base_for_char(am_char: str) -> Tuple[str, Optional[str]]:
     return base, var
 
 # ---- Stage B: Ethiopic normalization (v0) ----
+# to ignore newlines and space duplicates
+# def normalize_ethiopic_text(s: str) -> str:
+#     s = s.replace("፡", " ")
+#     s = re.sub(r"\s+", " ", s).strip()
+#     return s
+
+# to preserve new lines but ignore space duplicates
+# def normalize_ethiopic_text(s: str) -> str:
+#     """
+#     Preserve newlines; normalize ፡ and collapse repeated horizontal whitespace only.
+#     """
+#     s = (s or "").replace("፡", " ")
+#     # collapse runs of spaces/tabs, but keep \n intact
+#     s = re.sub(r"[ \t\f\v]+", " ", s)
+#     return s
+
+# to preserve spaces and newlines
 def normalize_ethiopic_text(s: str) -> str:
-    s = s.replace("፡", " ")
-    s = re.sub(r"\s+", " ", s).strip()
-    return s
+    return (s or "").replace("፡", " ")
+
+
+
 # --- punctuation mapping tables (v0) ---
 ETH_TO_ASCII_PUNCT = {
     "፡": " ",   # word separator
@@ -964,13 +982,9 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
     # out_text = "".join(out_text_parts)
     # out_text = normalize_ethiopic_text(out_text)
 
-    # 
     out_text = "".join(out_text_parts)
-    # NEW: map ASCII punctuation (from Latin spans) into Ethiopic punctuation
     out_text = ascii_punct_to_ethiopic(out_text)
-    # existing: ፡ -> space + collapse whitespace
-    out_text = normalize_ethiopic_text(out_text)
-    # 
+    out_text = normalize_ethiopic_text(out_text)   # <-- this used to collapse whitespace
 
 
     car_out_parts: List[str] = []
