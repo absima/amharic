@@ -24,21 +24,31 @@ def resolve_ui_key(text: str, *, latin_mode: str = "auto") -> Optional[Dict[str,
     Resolve user input to a pinned UI lexicon item.
 
     Resolution order:
+      0) Direct key match (e.g., "ui.auth.login")
       1) Explicit alias match (canon_alias)
       2) normalize() -> text_am direct match
       3) normalize() -> exactly one alternative text_am match
       4) normalize() -> car match
     """
-    # 1) Explicit aliases
-    ca = canon_alias(text)
+    s = (text or "").strip()
+    if not s:
+        return None
+
+    # direct key match
+    hit = KEY_TO_ITEM.get(s)
+    if hit is not None:
+        return hit
+
+    # explicit aliases
+    ca = canon_alias(s)
     key = ALIAS_TO_KEY.get(ca)
     if key is not None:
         return KEY_TO_ITEM.get(key)
 
-    # 2) Normalization pipeline
+    # Normalization pipeline
     from .normalize import normalize  # type: ignore
 
-    out = normalize(text, {"latin_mode": latin_mode})
+    out = normalize(s, {"latin_mode": latin_mode})
 
     am = out.get("text_am")
     if isinstance(am, str) and am in AM_TO_ITEM:
