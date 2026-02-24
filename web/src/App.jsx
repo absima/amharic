@@ -368,7 +368,7 @@ export default function App() {
         <div className="panel">
           <h3>{latinLabel}</h3>
 
-          <textarea
+          {/* <textarea
             className="text-surface"
             rows={8}
             value={latinText}
@@ -377,7 +377,22 @@ export default function App() {
             placeholder={
               latinIsInput ? "Type Latin… e.g. tarfiyalesh, migib, hEi" : ""
             }
+          /> */}
+          <textarea
+            className="text-surface"
+            rows={2}
+            style={{ resize: "vertical" }}       // ✅ user can stretch
+            maxLength={200}                      // ✅ limit
+            value={latinText}
+            onChange={(e) => latinIsInput && setLatinText(e.target.value)}
+            readOnly={!latinIsInput}
+            placeholder={latinIsInput ? "Type Latin… e.g. selam, enkwan, l_u" : ""}
           />
+          {latinIsInput && (
+            <div className="hintline">
+              {latinText.length}/200
+            </div>
+          )}          
 
           {/* KEEP BUTTON ROW ALWAYS PRESENT so the panel height stays stable */}
           <div className="button-row">
@@ -451,17 +466,35 @@ export default function App() {
                 )
               )}
             </div>
+          // ) : (
+          //   <textarea
+          //     className="text-surface"
+          //     rows={8}
+          //     value={finalAm}
+          //     onChange={(e) => amIsInput && setAmText(e.target.value)}
+          //     readOnly={!amIsInput}
+          //     placeholder={amIsInput ? "Paste Ethiopic text… e.g. ታርፋለህ" : ""}
+          //   />
+          // )}
           ) : (
-            <textarea
-              className="text-surface"
-              rows={8}
-              value={finalAm}
-              onChange={(e) => amIsInput && setAmText(e.target.value)}
-              readOnly={!amIsInput}
-              placeholder={amIsInput ? "Paste Ethiopic text… e.g. ታርፋለህ" : ""}
-            />
+            <>
+              <textarea
+                className="text-surface"
+                rows={2}
+                style={{ resize: "vertical" }}
+                maxLength={200}
+                value={finalAm}
+                onChange={(e) => amIsInput && setAmText(e.target.value)}
+                readOnly={!amIsInput}
+                placeholder={amIsInput ? "Paste Ethiopic text… e.g. ሰላም" : ""}
+              />
+              {amIsInput && (
+                <div className="hintline">
+                  {finalAm.length}/200
+                </div>
+              )}
+            </>
           )}
-
           <div className="button-row">
             {amIsInput ? (
               <button onClick={runNormalize} disabled={loading || !amText.trim()}>

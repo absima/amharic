@@ -113,7 +113,7 @@ export default function TypingHelp() {
             }}
             className="typing-help-content"
           >
-            <div
+            {/* <div
               style={{
                 display: "flex",
                 alignItems: "start",
@@ -136,6 +136,47 @@ export default function TypingHelp() {
                 className="secondary"
                 onClick={() => setOpen(false)}
                 style={{ whiteSpace: "nowrap" }}
+              >
+                Close ×
+              </button>
+            </div> */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 10,
+                flexWrap: "wrap",        // ✅ allow wrap on mobile
+              }}
+            >
+              <div style={{ minWidth: 0, flex: "1 1 320px" }}> {/* ✅ allow title to wrap nicely */}
+                <h3
+                  style={{
+                    margin: 0,
+                    fontSize: "clamp(16px, 2.6vw, 22px)",       // ✅ responsive
+                    lineHeight: 1.2,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  Latin-Std Typing Guide (v0)
+                </h3>
+
+                <p className="muted" style={{ marginTop: 6 }}>
+                  Lowercase is standard. Uppercase has no special meaning in the new standard.
+                  Underscore (<span className="mono">_</span>) introduces independent አ-family vowels.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => setOpen(false)}
+                style={{
+                  whiteSpace: "nowrap",
+                  flex: "0 0 auto",
+                  alignSelf: "flex-start",
+                }}
               >
                 Close ×
               </button>
