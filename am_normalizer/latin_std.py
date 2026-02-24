@@ -13,49 +13,6 @@ class CarToken:
     order: str              # "1".."8"
 
 
-def parse_car_stream(s: str) -> List[CarToken]:
-    """
-    Parse delimiterless CAR stream into tokens.
-    Token pattern: <base><variant?><order>
-      - base: [a-z]+ optionally containing "'"
-      - variant: optional [1-2]
-      - order: [1-8]
-
-    IMPORTANT:
-    We cannot finalize a token at the first digit because variant digits (1/2)
-    may appear before the order digit.
-    """
-    tokens: List[CarToken] = []
-    i = 0
-
-    while i < len(s):
-        # read base (letters and apostrophe)
-        j = i
-        while j < len(s) and (s[j].isalpha() or s[j] == "'"):
-            j += 1
-        if j == i:
-            raise ValueError(f"Invalid CAR stream at {i}: expected base, got {s[i]!r}")
-
-        base = s[i:j]
-        if j >= len(s) or not s[j].isdigit():
-            raise ValueError(f"Invalid CAR token at {i}: missing order digit after base {base!r}")
-
-        variant: Optional[str] = None
-
-        # If there are TWO digits available, interpret as variant+order.
-        # Else ONE digit is order only.
-        if j + 1 < len(s) and s[j] in "12" and s[j + 1] in "12345678":
-            variant = s[j]
-            order = s[j + 1]
-            i = j + 2
-        else:
-            order = s[j]
-            i = j + 1
-
-        tokens.append(CarToken(base=base, variant=variant, order=order))
-
-    return tokens
-
 def parse_car_prefix(s: str) -> tuple[list[CarToken], int]:
     """
     Parse as many CAR tokens as possible from the start of s.
@@ -67,11 +24,9 @@ def parse_car_prefix(s: str) -> tuple[list[CarToken], int]:
     n = len(s)
 
     while i < n:
-        # token must start with a letter (or apostrophe as part of base is only allowed after letters)
         if not s[i].isalpha():
             break
 
-        # read base (letters + apostrophe)
         j = i
         while j < n and (s[j].isalpha() or s[j] == "'"):
             j += 1
@@ -100,46 +55,44 @@ def parse_car_prefix(s: str) -> tuple[list[CarToken], int]:
 
     return tokens, i
 
-# CAR order -> Latin-Std vowel/operator (consonant families)
+
+# Attached vowel rendering for consonant families (outer Latin-Std)
 ORDER_TO_LATIN = {
     "1": "e",
     "2": "u",
     "3": "i",
     "4": "a",
-    "5": "Ei",  # order-5 operator (locked)
+    "5": "ei",  # order-5
     "6": "",    # no vowel
     "7": "o",
-    "8": "Wa",  # locked convention for order-8
+    "8": "oa",  # order-8 labialized
 }
 
-# Vowel carrier family (base "a") -> Latin-Std carrier tokens (locked)
+# a-family carriers rendered as underscore carriers (outer Latin-Std)
 A_ORDER_TO_CARRIER = {
-    "1": "A",   # አ
-    "2": "U",   # ኡ
-    "3": "I",   # ኢ
-    "4": "AA",  # ኣ
-    "5": "EE",  # ኤ
-    "6": "E",   # እ  (locked: E / EE / Ei precedence)
-    "7": "O",   # ኦ
+    "1": "_a",   # አ
+    "2": "_u",   # ኡ
+    "3": "_i",   # ኢ
+    "4": "_aa",  # ኣ
+    "5": "_ei",  # ኤ
+    "6": "_",    # እ
+    "7": "_o",   # ኦ
 }
 
-# Base -> Latin-Std rendering (deterministic).
-# Priority: your single-letter explicit selectors, then any remaining disambiguators.
+# Base -> Latin-Std rendering (deterministic, case-free).
+# Only include bases that differ from their literal base string.
 BASE_TO_LATIN_STD = {
-    # --- single-letter explicit selectors (your standard) ---
-    "kh":  "K",    # ኸ
-    "ny":  "N",    # ኘ
-    "zh":  "Z",    # ዠ
-    "ts'": "X",    # ጸ  (variant1 handled specially -> Y for ፀ)
-
-    "p'":  "P",    # ጰ
-    "t'":  "T",    # ጠ
-    "ch'": "C",    # ጨ
-    "ch":  "c",    # ቸ
-
-    # --- remaining disambiguator still needed ---
-    "sh": "Sh",    # ሽ-family
+    "kh":  "kx",   # ኸ
+    "ny":  "nx",   # ኘ
+    "zh":  "zx",   # ዠ
+    "ts'": "cx",   # ጸ
+    "p'":  "px",   # ጰ
+    "t'":  "tx",   # ጠ
+    "ch'": "chx",  # ጨ
+    "sh":  "shx",  # ሽ
+    # "ch" remains "ch"
 }
+
 
 ETH_TO_ASCII_PUNCT = {
     "፡": " ",
@@ -147,18 +100,23 @@ ETH_TO_ASCII_PUNCT = {
     "፣": ",",
     "፤": ";",
     "፥": ":",
-    "፦": "::",  # policy choice
+    "፦": "::",
 }
+
 
 def ethiopic_punct_to_ascii(s: str) -> str:
     return "".join(ETH_TO_ASCII_PUNCT.get(ch, ch) for ch in (s or ""))
 
+
 def car_to_latin_std(car: str) -> str:
     """
-    Deterministic CAR -> Latin-Std rendering.
+    Deterministic CAR -> Latin-Std rendering (outer layer, case-free).
 
-    Accepts mixed streams that may include whitespace / punctuation.
-    We convert CAR tokens inside letter/apostrophe/digit runs, and pass the rest through.
+    - consonant families render as: <base_token><vowel_token?>
+    - a-family carriers render as: _a/_u/_i/_aa/_ei/_/_o
+    - order8 renders as "oa" suffix
+    - variant families are rendered using x/xx in the base token:
+        h1 -> hx, h2 -> hxx, s1 -> sx, ts'1 -> cxx, a1 -> ax
     """
     parts: List[str] = []
 
@@ -166,13 +124,11 @@ def car_to_latin_std(car: str) -> str:
     chunks = re.findall(r"[A-Za-z'0-9]+|[^A-Za-z'0-9]+", car)
 
     for chunk in chunks:
-        # Pass through non CAR-ish chunks (spaces, punctuation, etc.)
         if not re.fullmatch(r"[A-Za-z'0-9]+", chunk):
             parts.append(chunk)
             continue
 
-        # Peel off leading/trailing single quotes used as quotation marks,
-        # so they don't block CAR parsing (CAR bases never start/end with a bare quote).
+        # Peel off leading/trailing quote marks (not CAR apostrophes)
         lead_quotes = ""
         trail_quotes = ""
         while len(chunk) >= 2 and chunk[0] == "'" and chunk[1].isalpha():
@@ -182,19 +138,10 @@ def car_to_latin_std(car: str) -> str:
             trail_quotes = "'" + trail_quotes
             chunk = chunk[:-1]
 
-        # Only attempt CAR parsing if this run starts with a letter and contains at least one letter.
-        # Otherwise, treat as passthrough (e.g., list numbers).
         if (not re.match(r"[A-Za-z]", chunk)) or (re.search(r"[A-Za-z]", chunk) is None):
             parts.append(lead_quotes + chunk + trail_quotes)
             continue
 
-        # Parse and render CAR tokens from this run
-        # try:
-        #     tokens = parse_car_stream(chunk)
-        # except ValueError:
-        #     # Not a valid CAR run (e.g., stray apostrophes). Pass through unchanged.
-        #     parts.append(lead_quotes + chunk + trail_quotes)
-        #     continue
         tokens, idx = parse_car_prefix(chunk)
         if not tokens:
             parts.append(lead_quotes + chunk + trail_quotes)
@@ -206,41 +153,49 @@ def car_to_latin_std(car: str) -> str:
             parts.append(lead_quotes)
 
         for t in tokens:
-            # vowel carriers (a-family)
-            if t.base == "a":
+            # a-family
+            if t.base == "a" and not t.variant:
                 carrier = A_ORDER_TO_CARRIER.get(t.order)
                 if carrier is None:
                     raise ValueError(f"Unsupported a-family order: a{t.order}")
-
-                # If a-family has a variant, treat it as a distinct consonant family (e.g., ዐ)
-                if t.variant:
-                    base_render = "J"  # ዐ-family
-                    vowel = ORDER_TO_LATIN.get(t.order)
-                    if vowel is None:
-                        raise ValueError(f"Unsupported order: {t.order}")
-                    parts.append(base_render + vowel)
-                else:
-                    parts.append(carrier)
+                parts.append(carrier)
                 continue
 
-            # consonant families (variant-dependent overrides)
+            # Variant families rendered as distinct outer base tokens
+            # (These are driven by your CAR tables: base+variant)
             if t.base == "h" and t.variant == "1":
-                base_render, var_render = "H", ""
-            elif t.base == "h" and t.variant == "2":
-                base_render, var_render = "Q", ""
-            elif t.base == "ts'" and t.variant == "1":
-                base_render, var_render = "Y", ""
-            elif t.base == "s" and t.variant == "1":
-                base_render, var_render = "V", ""
-            else:
-                base_render = BASE_TO_LATIN_STD.get(t.base, t.base)
-                var_render = t.variant or ""
+                base_render = "hx"
+                vowel = ORDER_TO_LATIN[t.order]
+                parts.append(base_render + vowel)
+                continue
+            if t.base == "h" and t.variant == "2":
+                base_render = "hxx"
+                vowel = ORDER_TO_LATIN[t.order]
+                parts.append(base_render + vowel)
+                continue
+            if t.base == "s" and t.variant == "1":
+                base_render = "sx"   # ሠ-family
+                vowel = ORDER_TO_LATIN[t.order]
+                parts.append(base_render + vowel)
+                continue
+            if t.base == "ts'" and t.variant == "1":
+                base_render = "cxx"  # ፀ-family (variant of ጸ in your tables)
+                vowel = ORDER_TO_LATIN[t.order]
+                parts.append(base_render + vowel)
+                continue
+            if t.base == "a" and t.variant == "1":
+                base_render = "ax"   # ዐ-family
+                vowel = ORDER_TO_LATIN[t.order]
+                parts.append(base_render + vowel)
+                continue
 
+            # Normal consonant families
+            base_render = BASE_TO_LATIN_STD.get(t.base, t.base)
             vowel = ORDER_TO_LATIN.get(t.order)
             if vowel is None:
                 raise ValueError(f"Unsupported order: {t.order}")
+            parts.append(base_render + vowel)
 
-            parts.append(base_render + var_render + vowel)
         if rest:
             parts.append(rest)
         if trail_quotes:
@@ -254,14 +209,9 @@ if __name__ == "__main__":
 
     car_to_am, am_to_car = load_car_maps()
 
-    for ch in ["ሠ", "ሰ", "ዐ", "አ", "ፀ", "ጸ"]:
+    for ch in ["ሠ", "ሰ", "ዐ", "አ", "ፀ", "ጸ", "ሏ"]:
         car = am_to_car.get(ch)
         if car:
             print(ch, "->", car, "->", car_to_latin_std(car))
-            # print(ch, "car repr:", repr(car), "chars:", [hex(ord(c)) for c in car])
-
         else:
             print(ch, "not found in CAR table")
-
-
-

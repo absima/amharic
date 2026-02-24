@@ -8,7 +8,7 @@ const API_BASE_RAW = import.meta.env.VITE_API_BASE_URL;
 const API_BASE = API_BASE_RAW.endsWith("/") ? API_BASE_RAW : API_BASE_RAW + "/";
 const NORMALIZE_URL = API_BASE + "normalize";
 
-const DEFAULT_LAT = "selam! EnkWan dehna meTu!";
+const DEFAULT_LAT = "selam! enkoan dehna metxu!";
 const DEFAULT_AM = "ሰላም! እንኳን ደህና መጡ!";
 
 async function fetchJson(url, options) {
@@ -292,6 +292,7 @@ export default function App() {
         if (popover.open) closePopover();
       }}
     >
+     <TypingHelp /> 
       <h2>Amharic Normalizer (AN-v0)</h2>
       <p className="muted">
         Two consistent boxes: Latin and Amharic. Switch direction as needed.
@@ -344,7 +345,7 @@ export default function App() {
                   0 = strict-ish, 1 = assistive (habit-biased).
                 </div>
               </div>
-              <TypingHelp />
+              {/* <TypingHelp /> */}
             </>
           ) : (
             <>
@@ -355,7 +356,7 @@ export default function App() {
                 <div className="hintline">placeholder</div>
               </div>
               <div style={{ visibility: "hidden" }} aria-hidden="true">
-                <TypingHelp />
+                {/* <TypingHelp /> */}
               </div>
             </>
           )}
@@ -512,7 +513,7 @@ export default function App() {
             )}
           </div>
 
-          <TypingHelp />
+          {/* <TypingHelp /> */}
 
           {popover.open && (reviewOne || reviewPunct) ? (
             <div

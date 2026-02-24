@@ -5,7 +5,7 @@ AN-v0 Normalizer (reference implementation)
 - Uses CAR tables in tables/orders.tsv and tables/order8.tsv
 - Stage A: segment scripts
 - Stage B: Ethiopic normalization (whitespace + ፡ -> space)
-- Stage C: Latin decoding (heuristic + ambiguity surfaced)
+- Stage C: Latin decoding (outer-layer Latin-Std -> CAR, ambiguity surfaced)
 - Stage D/E: merge + final CAR encoding
 """
 
@@ -16,6 +16,8 @@ import math
 import re
 import sys
 from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from .paths import data_path
@@ -30,7 +32,9 @@ def is_ethiopic_char(ch: str) -> bool:
 
 
 def is_latin_char(ch: str) -> bool:
-    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ch == "'"
+    # Include '_' because we use underscore carriers like _a, _ei, _ (a6).
+    # Include apostrophe as pass-through for future prosody/stress layers.
+    return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ch in {"'", "_"}
 
 
 def is_digit(ch: str) -> bool:
@@ -82,60 +86,16 @@ def load_car_maps() -> Tuple[Dict[str, str], Dict[str, str]]:
 
     return car_to_am, am_to_car
 
-from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def load_car_maps_cached() -> Tuple[Dict[str, str], Dict[str, str]]:
     return load_car_maps()
 
-def _car_token_parts(tok: str) -> Tuple[str, Optional[str], str]:
-    """
-    Split a single CAR token like "ts'6" or "a16" or "zh27" into (base, variant, order).
-    variant is "1"/"2" or None.
-    """
-    order = tok[-1]
-    core = tok[:-1]
-    variant = None
-    if core and core[-1] in "12":
-        variant = core[-1]
-        base = core[:-1]
-    else:
-        base = core
-    return base, variant, order
-
-def _base_for_char(am_char: str) -> Tuple[str, Optional[str]]:
-    """
-    Return (base, forced_variant) for a given Ethiopic character using the TSV tables.
-    forced_variant is only needed if the character lives in a variant family.
-    """
-    _, am_to_car = load_car_maps_cached()
-    tok = am_to_car.get(am_char)
-    if not tok:
-        raise KeyError(f"Char not in tables: {am_char!r}")
-    base, var, _ = _car_token_parts(tok)
-    return base, var
 
 # ---- Stage B: Ethiopic normalization (v0) ----
-# to ignore newlines and space duplicates
-# def normalize_ethiopic_text(s: str) -> str:
-#     s = s.replace("፡", " ")
-#     s = re.sub(r"\s+", " ", s).strip()
-#     return s
-
-# to preserve new lines but ignore space duplicates
-# def normalize_ethiopic_text(s: str) -> str:
-#     """
-#     Preserve newlines; normalize ፡ and collapse repeated horizontal whitespace only.
-#     """
-#     s = (s or "").replace("፡", " ")
-#     # collapse runs of spaces/tabs, but keep \n intact
-#     s = re.sub(r"[ \t\f\v]+", " ", s)
-#     return s
-
-# to preserve spaces and newlines
+# Preserve spaces/newlines; only normalize ፡ -> space
 def normalize_ethiopic_text(s: str) -> str:
     return (s or "").replace("፡", " ")
-
 
 
 # --- punctuation mapping tables (v0) ---
@@ -191,15 +151,11 @@ def ascii_punct_to_ethiopic(s: str) -> str:
 
     def is_initialism_dot(idx: int) -> bool:
         # Detect patterns like U.S. or U.S.A. (at least "X." repeated)
-        # Look left: "...X." and maybe earlier "Y."
         if idx < 1 or not s[idx - 1].isalpha():
             return False
-        # look back for another ".<letter>." pattern nearby
         j = idx - 2
         while j >= 0 and s[j] in " \t":
             j -= 1
-        # crude but effective: if we can find another letter-dot just before
-        # e.g. "U.S." => at dot after S, we see "U." earlier
         return (j >= 1 and s[j] == "." and s[j - 1].isalpha())
 
     while i < n:
@@ -211,7 +167,6 @@ def ascii_punct_to_ethiopic(s: str) -> str:
             continue
 
         if ch == ":":
-            # keep : in URLs like http://, https://
             if i + 2 < n and s[i + 1] == "/" and s[i + 2] == "/":
                 out.append(":")
             else:
@@ -242,8 +197,7 @@ def ascii_punct_to_ethiopic(s: str) -> str:
                 i += 1
                 continue
 
-            # default: only convert to ። when it looks like sentence end
-            # (end of string OR followed by whitespace/closer)
+            # default: convert to ። when it looks like sentence end
             if (i + 1 == n) or (nxt in _CLOSERS):
                 out.append("።")
             else:
@@ -255,6 +209,7 @@ def ascii_punct_to_ethiopic(s: str) -> str:
         i += 1
 
     return "".join(out)
+
 
 # ---- Stage A: segmentation ----
 @dataclass
@@ -277,23 +232,11 @@ def segment_scripts(s: str) -> List[Span]:
             return "NUM"
         return "SEP"
 
-    def kind_at(i: int) -> str:
-        ch = s[i]
-        k = base_kind(ch)
-
-        # # If this is a digit attached to Latin (e.g., s3m1t'4), treat as LAT
-        # if k == "NUM":
-        #     prev_is_lat = i > 0 and base_kind(s[i - 1]) == "LAT"
-        #     next_is_lat = i + 1 < len(s) and base_kind(s[i + 1]) == "LAT"
-        #     if prev_is_lat or next_is_lat:
-        #         return "LAT"
-        return k
-
-    cur_kind = kind_at(0)
+    cur_kind = base_kind(s[0])
     buf = [s[0]]
 
     for i in range(1, len(s)):
-        k = kind_at(i)
+        k = base_kind(s[i])
         if k == cur_kind:
             buf.append(s[i])
         else:
@@ -305,14 +248,38 @@ def segment_scripts(s: str) -> List[Span]:
     return spans
 
 
-# ---- Stage C: Latin decoding ----
+# ---- Stage C: Latin decoding (outer Latin-Std) ----
+
+# Canonical Latin-Std base tokens (outer layer).
+# IMPORTANT: longest-match matters; keep longer tokens first.
 BASES = [
-    "ts'", "ch'", "p'", "t'",
-    "sh", "ch", "ny", "zh", "kh",
+    # very long first
+    "cxx", "chx", "shx", "hxx",
+    # x-marked bases
+    "kx", "nx", "zx", "cx", "px", "tx", "hx", "sx", "ax",
+    # regular digraphs (if you still accept them as-is)
+    "ch", "sh", "kh", "ny", "zh",
     # singles
-    "h", "l", "m", "r", "s", "q", "b", "t", "n", "k", "w", "z", "y", "d", "j", "g", "f", "p", "v", "a"
+    "h", "l", "m", "r", "s", "q", "b", "t", "n", "k", "w", "z", "y", "d", "j", "g", "f", "p", "v",
 ]
 
+# Attached vowel cues after consonant families
+VOWEL_TO_ORDER = {"e": "1", "u": "2", "i": "3", "a": "4", "o": "7"}
+VOWEL2_TO_ORDER = {"ei": "5"}
+
+# Independent vowel carriers (a-family), underscore-prefixed:
+# _a,_u,_i,_aa,_ei,_,_o -> አ ኡ ኢ ኣ ኤ እ ኦ
+UNDERSCORE_CARRIERS = {
+    "_a":  "a1",
+    "_u":  "a2",
+    "_i":  "a3",
+    "_aa": "a4",
+    "_ei": "a5",
+    "_":   "a6",
+    "_o":  "a7",
+}
+
+# Optional lexicon fast-path
 LAT_LEXICON = {
     "yet": "y1t6",   # የት
     "bota": "b7t4",  # ቦታ
@@ -320,73 +287,28 @@ LAT_LEXICON = {
     "min": "m6n6",   # ምን
 }
 
-# Latin-Std explicit base selectors (single letters, case-sensitive)
-# Note: user chose: c -> ch (ቸ), C -> ch' (ጨ), P -> p' (ጰ), T -> t' (ጠ)
-STRICT_BASE_MAP = {
-    "K": "kh",    # ኸ
-    "N": "ny",    # ኘ
-    "Z": "zh",    # ዠ
-    "X": "ts'",   # ጸ
-    "P": "p'",    # ጰ
-    "T": "t'",    # ጠ
-    "C": "ch'",   # ጨ
+# Latin-Std base token -> (car_base, forced_variant)
+# forced_variant is "1"/"2" or "" when not needed.
+LATIN_BASE_TO_CAR = {
+    # “not in Latin” / ejective / special
+    "kx":  ("kh",  ""),
+    "nx":  ("ny",  ""),
+    "zx":  ("zh",  ""),
+    "cx":  ("ts'", ""),
+    "px":  ("p'",  ""),
+    "tx":  ("t'",  ""),
+    "chx": ("ch'", ""),
+    "shx": ("sh",  ""),
+
+    # variant families
+    "hx":  ("h",   "1"),  # ሐ
+    "hxx": ("h",   "2"),  # ኀ
+    "sx":  ("s",   "1"),  # ሠ
+    "ax":  ("a",   "1"),  # ዐ (a-family variant treated as consonant family)
+    "cxx": ("ts'", "1"),  # ፀ (variant of ጸ in your tables)
+
+    # plain ones map to themselves implicitly: "ch","h","l","m",...
 }
-
-# --- derived strict selectors (do not guess; read from tables) ---
-# We map the selector to either:
-#   - a base string (normal), or
-#   - a (base, forced_variant) tuple when needed.
-STRICT_BASE_MAP_DERIVED = {}
-
-# ሐ (ha variant), ኀ, ሠ, ፀ
-for sel, ch in {
-    "H": "ሐ",
-    "Q": "ኀ",
-    "R": "ሠ",
-    "Y": "ፀ",
-    "J": "ዐ",
-}.items():
-    base, var = _base_for_char(ch)
-    STRICT_BASE_MAP_DERIVED[sel] = (base, var) if var else base
-
-STRICT_BASE_MAP.update(STRICT_BASE_MAP_DERIVED)
-
-
-CASE_DIGRAPHS = {
-    "Sh": "sh", "SH": "sh",
-    "Kh": "kh", "KH": "kh",
-    "Ny": "ny", "NY": "ny",
-    "Zh": "zh", "ZH": "zh",
-    "Ch": "ch", "CH": "ch",
-}
-
-AUTO_DISABLED_BASES = {"sh", "kh", "ny", "zh", "ch"}
-
-VOWEL_TO_ORDER = {
-    "u": "2",
-    "i": "3",
-    "a": "4",
-    "e": "1",
-    "o": "7",
-}
-
-VOWEL2_TO_ORDER = {
-    "ei": "5",
-    }
-
-# Latin-Std vowel-carrier tokens (case-sensitive) -> CAR tokens
-LATIN_STD_CARRIERS = {
-    "AA": "a4",  # ኣ
-    "EE": "a5",  # ኤ
-    "A":  "a1",  # አ
-    "U":  "a2",  # ኡ
-    "I":  "a3",  # ኢ
-    "O":  "a7",  # ኦ
-    "E":  "a6",  # እ  (locked: E / EE / Ei)
-}
-
-HABIT_DIGRAPH_BONUS = 0.75  # prior for lowercase 'sh' => ሽ (habit) vs s+h
-
 
 @dataclass
 class Candidate:
@@ -433,96 +355,36 @@ def decode_latin_word_to_candidates(
     word: str,
     car_to_am: Dict[str, str],
     latin_mode: str = "auto",
-    habit_strength: float = 1.0,
+    habit_strength: float = 0.0,
 ) -> List[Candidate]:
     """
     Decode a single Latin "word" into Candidate CAR strings.
 
-    Core Latin-Std rules:
-    - Uppercase carriers AA/EE/A/U/I/O/E are standalone carriers (a1..a7), never vowel cues.
-    - "Ei" after a consonant is reserved for order-5 (e.g., hEi -> ሄ).
-    - Explicit base selectors work in AUTO and STRICT:
-        K,N,Z,X,P,T,C (case-sensitive)
-      plus lowercase 'c' is a convenience alias for 'ch' (ቸ).
+    Outer Latin-Std (case-free) rules:
+    - Underscore carriers:
+        _a,_u,_i,_aa,_ei,_,_o -> a1..a7
+    - Attached vowels:
+        e,u,i,a,ei,(empty),o -> orders 1..7
+    - Override vowels as አ-family after a consonant:
+        C _vowel  => C6 + a(order)
+        Example: l_u => l6 a2 => ልኡ
+    - Order-8 labialized suffix:
+        C oa => C8
+        Example: loa => l8 => ሏ
+    - Apostrophe (') is pass-through (reserved for future prosody); it is NOT an ejective marker here.
     """
-    w = word.strip()
+    w = (word or "").strip()
     if not w:
         return []
 
-    # --------------------
-    # STRICT MODE
-    # --------------------
+    # "strict" is deprecated in the case-free standard; treat as auto
     if latin_mode == "strict":
-        car = ""
-        i = 0
-        while i < len(w):
-            ch = w[i]
-            forced_var = None
-            # single-letter explicit base selectors
-            if ch in STRICT_BASE_MAP:
-                # base = STRICT_BASE_MAP[ch]
-                v = STRICT_BASE_MAP[ch]
-                forced_var = None
-                if isinstance(v, tuple):
-                    base, forced_var = v
-                else:
-                    base = v
-                i += 1
-            # lowercase convenience: c -> ch
-            elif ch == "c":
-                base = "ch"
-                i += 1
-            else:
-                base = ch.lower()
-                i += 1
+        latin_mode = "auto"
 
-            # ejective mark (still allowed explicitly)
-            if i < len(w) and w[i] == "'":
-                base += "'"
-                i += 1
-
-            # var = ""
-            # if i < len(w) and w[i] in "12":
-            #     var = w[i]
-            #     i += 1
-
-            # if i >= len(w) or not w[i].isdigit():
-            #     return []
-            # order = w[i]
-            # i += 1
-            var = ""
-            if i < len(w) and w[i] in "12":
-                var = w[i]
-                i += 1
-
-            # apply forced variant if selector demands it
-            if forced_var is not None:
-                if var and var != forced_var:
-                    return []  # conflicting variant; invalid strict token
-                var = forced_var
-
-            if i >= len(w) or not w[i].isdigit():
-                return []
-            order = w[i]
-            i += 1
-
-            tok = f"{base}{var}{order}"
-            if tok not in car_to_am:
-                return []
-            car += tok
-
-        return [Candidate(car=car, score=5.0, reasons=["strict_mode"])]
-
-    # --------------------
-    # AUTO MODE
-    # --------------------
     wraw = w
     wlow = w.lower()
 
-    # clamp habit strength
-    habit_strength = max(0.0, min(1.0, habit_strength))
-
-    # 0) Lexicon fast-path
+    # 0) Lexicon fast-path (lowercased lookup)
     if wlow in LAT_LEXICON:
         car = LAT_LEXICON[wlow]
         if try_decode_car_concatenation(car, car_to_am) is not None:
@@ -533,28 +395,6 @@ def decode_latin_word_to_candidates(
     if maybe is not None:
         return [Candidate(car=w, score=0.99, reasons=["parsed_as_car"])]
 
-    def upper_carrier_start_at(raw: str, j: int) -> bool:
-        if j >= len(raw):
-            return False
-        # Ei is order-5 cue, not a carrier
-        if j + 1 < len(raw) and raw[j:j+2] == "Ei":
-            return False
-        if j + 1 < len(raw) and raw[j:j+2] in ("AA", "EE"):
-            return True
-        if raw[j] in ("A", "U", "I", "O", "E"):
-            return True
-        return False
-
-    def digraph_habit_bonus(raw: str, pos0: int) -> float:
-        base = HABIT_DIGRAPH_BONUS
-        prev_ch = raw[pos0 - 1] if pos0 - 1 >= 0 else ""
-        next_ch = raw[pos0 + 2] if pos0 + 2 < len(raw) else ""
-        if prev_ch in ("-", "_", "'") or next_ch in ("-", "_", "'"):
-            return 0.0
-        if prev_ch and next_ch and prev_ch.isalpha() and next_ch.isalpha():
-            return base
-        return base
-
     # Beam entries: (pos, car_str, score, reasons)
     beam: List[Tuple[int, str, float, List[str]]] = [(0, "", 0.0, [])]
     max_beam = 20
@@ -562,6 +402,47 @@ def decode_latin_word_to_candidates(
     def add(beam_next, pos, car_add, score_add, reasons_add):
         beam_next.append((pos, car_add, score_add, reasons_add))
 
+    def match_underscore_carrier(raw: str, pos: int) -> Optional[Tuple[str, str, int]]:
+        """
+        If raw[pos:] starts with an underscore-carrier, return (key, tok, length).
+        Longest-match first.
+        """
+        if pos >= len(raw) or raw[pos] != "_":
+            return None
+        for key in ("_aa", "_ei", "_a", "_u", "_i", "_o", "_"):
+            if raw.startswith(key, pos):
+                return key, UNDERSCORE_CARRIERS[key], len(key)
+        return None
+    def match_leading_vowel_as_a_family(raw: str, pos: int) -> Optional[Tuple[str, str, int]]:
+        """
+        Input convenience: at word-start only, allow leading vowels to mean a-family carriers,
+        as if prefixed with underscore.
+
+        a,u,i,aa,ei,o -> a1,a2,a3,a4,a5,a7
+        e             -> a6  (because _ alone is your እ carrier)
+        """
+        if pos != 0:
+            return None
+
+        # longest-match first
+        if raw.startswith("aa", pos):
+            return "aa", "a4", 2
+        if raw.startswith("ei", pos):
+            return "ei", "a5", 2
+
+        ch = raw[pos:pos+1].lower()
+        if ch == "a":
+            return "a", "a1", 1
+        if ch == "u":
+            return "u", "a2", 1
+        if ch == "i":
+            return "i", "a3", 1
+        if ch == "o":
+            return "o", "a7", 1
+        if ch == "e":
+            return "e", "a6", 1
+
+        return None    
     def emit_base_step(
         new_beam: List[Tuple[int, str, float, List[str]]],
         pos_after_base: int,
@@ -574,82 +455,40 @@ def decode_latin_word_to_candidates(
         wlow: str,
     ) -> bool:
         """
-        Emit transitions after we've identified a base (+ optional variant),
-        applying vowel cues or no-vowel (order6). Returns whether progressed.
+        After we've identified a base (+ optional variant), emit possible transitions:
+        - order8 via "oa"
+        - underscore override: C _carrier => C6 + a#
+        - attached vowels ei/e/u/i/a/o
+        - no vowel => order6
         """
-        progressed_local = False
         b_end2 = pos_after_base
+        progressed_local = False
 
-        # carriers never act as vowel cues
-        if upper_carrier_start_at(wraw, b_end2):
-            tok = f"{base}{var}6"
+        # (1) Special order-8 suffix: "oa"
+        if b_end2 + 1 < len(wlow) and wlow[b_end2:b_end2 + 2] == "oa":
+            tok = f"{base}{var}8"
             if tok in car_to_am:
-                add(new_beam, b_end2, car_str + tok, base_score + 0.55,
-                    base_reasons2 + ["carrier_boundary->order6"])
+                add(new_beam, b_end2 + 2, car_str + tok, base_score + 0.85,
+                    base_reasons2 + ["vowel2=oa(order8)"])
                 return True
-            return False
+            # if base doesn't support order8, fall through
+
+        # (2) Underscore override after consonant: C _carrier => C6 + a(order)
+        m = match_underscore_carrier(wraw, b_end2)
+        if m is not None:
+            key, a_tok, klen = m
+            tok_c6 = f"{base}{var}6"
+            if tok_c6 in car_to_am and a_tok in car_to_am:
+                add(new_beam, b_end2 + klen, car_str + tok_c6 + a_tok, base_score + 0.9,
+                    base_reasons2 + [f"underscore_override={key}->{tok_c6}+{a_tok}"])
+                progressed_local = True
+                # do not return; allow other paths too (beam search)
 
         matched_vowel = False
 
-        # Prefer explicit Ei for order5
-        if b_end2 + 1 < len(wraw) and wraw[b_end2:b_end2+2] == "Ei":
-            tok = f"{base}{var}5"
-            if tok in car_to_am:
-                add(new_beam, b_end2 + 2, car_str + tok, base_score + 0.75,
-                    base_reasons2 + ["vowel2=Ei(explicit)"])
-                progressed_local = True
-                matched_vowel = True
-        # Prefer explicit Wa for order8
-        # if (not matched_vowel) and b_end2 + 1 < len(wraw) and wraw[b_end2:b_end2+2] == "Wa":
-        #     tok = f"{base}{var}8"
-        #     if tok in car_to_am:
-        #         add(
-        #             new_beam,
-        #             b_end2 + 2,
-        #             car_str + tok,
-        #             base_score + 0.75,
-        #             base_reasons2 + ["vowel2=Wa(explicit)"],
-        #         )
-        #         progressed_local = True
-        #         matched_vowel = True
-
-        # Prefer explicit Wa for order8
-        if (not matched_vowel) and b_end2 + 1 < len(wraw) and wraw[b_end2:b_end2+2] == "Wa":
-            # first: normal path (base8)
-            tok = f"{base}{var}8"
-            if tok in car_to_am:
-                add(
-                    new_beam,
-                    b_end2 + 2,
-                    car_str + tok,
-                    base_score + 0.75,
-                    base_reasons2 + ["vowel2=Wa(explicit)"],
-                )
-                progressed_local = True
-                matched_vowel = True
-            else:
-                # exceptional convenience: hWa means khWa (because only kh has order8 /wa/)
-                if base == "h" and var == "":
-                    tok2 = "kh8"
-                    if tok2 in car_to_am:
-                        add(
-                            new_beam,
-                            b_end2 + 2,
-                            car_str + tok2,
-                            base_score + 0.72,  # slightly less than explicit khWa, but still strong
-                            base_reasons2 + ["vowel2=Wa(explicit)", "exception:hWa->kh8"],
-                        )
-                        progressed_local = True
-                        matched_vowel = True
-
-
-        # 2-letter vowel cue (lowercase ei)
-        if (not matched_vowel) and b_end2 + 1 < len(wlow):
+        # (3) 2-letter attached vowel cue "ei" (lowercase only)
+        if b_end2 + 1 < len(wlow):
             v2 = wlow[b_end2:b_end2 + 2]
-            # IMPORTANT (bijective Latin-Std): 2-letter lowercase vowel cues must match in the *raw* text too.
-            # This prevents consuming uppercase carriers like 'I' in sequences such as 'eI' (e.g., beItyoPya).
-            if wraw[b_end2:b_end2 + 2] != v2:
-                v2 = ""
             if v2 in VOWEL2_TO_ORDER:
                 order = VOWEL2_TO_ORDER[v2]
                 tok = f"{base}{var}{order}"
@@ -659,7 +498,7 @@ def decode_latin_word_to_candidates(
                     progressed_local = True
                     matched_vowel = True
 
-        # 1-letter vowel cue (lowercase only)
+        # (4) 1-letter attached vowel cue
         if (not matched_vowel) and b_end2 < len(wlow):
             v1 = wlow[b_end2]
             if v1 in VOWEL_TO_ORDER:
@@ -671,24 +510,12 @@ def decode_latin_word_to_candidates(
                     progressed_local = True
                     matched_vowel = True
 
-                    # habit alternative: i sometimes used as "no vowel" (order6)
-                    if v1 == "i" and (b_end2 + 1) < len(wlow):
-                        nxt = wlow[b_end2 + 1]
-                        if nxt.isalpha() or nxt == "'":
-                            tok2 = f"{base}{var}6"
-                            if tok2 in car_to_am:
-                                add(new_beam, b_end2 + 1, car_str + tok2,
-                                    base_score + 0.05,
-                                    base_reasons2 + ["habit:i->order6"])
-                                progressed_local = True
-
-        # no vowel => order6 only
-        if not matched_vowel:
-            tok = f"{base}{var}6"
-            if tok in car_to_am:
-                add(new_beam, b_end2, car_str + tok, base_score + 0.1,
-                    base_reasons2 + ["no_vowel->order6"])
-                progressed_local = True
+        # (5) no attached vowel => order6
+        tok6 = f"{base}{var}6"
+        if tok6 in car_to_am:
+            add(new_beam, b_end2, car_str + tok6, base_score + 0.1,
+                base_reasons2 + ["no_vowel->order6"])
+            progressed_local = True
 
         return progressed_local
 
@@ -703,150 +530,71 @@ def decode_latin_word_to_candidates(
 
             ch = wlow[pos]
 
-            # separators inside token
-            if ch in "-_":
-                new_beam.append((pos + 1, car_str, score - 0.2, reasons + ["skipped_sep"]))
+            # hyphen is treated as a soft separator; skip with small penalty
+            if ch == "-":
+                new_beam.append((pos + 1, car_str, score - 0.2, reasons + ["skipped_sep:-"]))
                 progressed = True
                 continue
 
-            # (0) Latin-Std carriers at cursor (case-sensitive)
-            if pos < len(wraw):
-                if pos + 1 < len(wraw) and wraw[pos:pos+2] in ("AA", "EE"):
-                    carr = wraw[pos:pos+2]
-                    tok = LATIN_STD_CARRIERS[carr]
-                    if tok in car_to_am:
-                        add(new_beam, pos + 2, car_str + tok, score + 0.8,
-                            reasons + [f"carrier={carr}->{tok}"])
-                        progressed = True
-                        continue
-
-                if wraw[pos] in ("A", "U", "I", "O", "E"):
-                    carr = wraw[pos]
-                    tok = LATIN_STD_CARRIERS[carr]
-                    if tok in car_to_am:
-                        add(new_beam, pos + 1, car_str + tok, score + 0.7,
-                            reasons + [f"carrier={carr}->{tok}"])
-                        progressed = True
-                        continue
-
-            # (0b) Latin-Std explicit base selectors (case-sensitive): K,N,Z,X,P,T,C
-            if pos < len(wraw) and wraw[pos] in STRICT_BASE_MAP:
-                # base = STRICT_BASE_MAP[wraw[pos]]
-                v = STRICT_BASE_MAP[wraw[pos]]
-                forced_var = None
-                if isinstance(v, tuple):
-                    base, forced_var = v
-                else:
-                    base = v
-
-                b_end = pos + 1
-                base_score = score + 0.9
-                base_reasons = reasons + [f"strict_base={wraw[pos]}->{base}"]
-
-                var = ""
-                if b_end < len(wlow) and wlow[b_end] in "12":
-                    var = wlow[b_end]
-                    b_end2 = b_end + 1
-                    base_score += 0.3
-                    base_reasons2 = base_reasons + [f"variant={var}"]
-                else:
-                    b_end2 = b_end
-                    base_reasons2 = base_reasons
-                # apply forced variant if selector demands it
-                if forced_var is not None:
-                    if var and var != forced_var:
-                        # conflict: explicit variant digit contradicts selector
-                        continue
-                    var = forced_var
-
-                if emit_base_step(new_beam, b_end2, base, var, base_score, base_reasons2, car_str, wraw, wlow):
-                    progressed = True
+            # apostrophe is reserved for future prosody/stress; keep as passthrough by skipping
+            if ch == "'":
+                new_beam.append((pos + 1, car_str, score - 0.15, reasons + ["skipped_apostrophe"]))
+                progressed = True
                 continue
 
-            # (0c) Latin-Std lowercase convenience alias: c -> ch (ቸ)
-            if pos < len(wraw) and wraw[pos] == "c":
-                base = "ch"
-                b_end2 = pos + 1
-                base_score = score + 0.88
-                base_reasons2 = reasons + ["alias_base=c->ch"]
-                if emit_base_step(new_beam, b_end2, base, "", base_score, base_reasons2, car_str, wraw, wlow):
+            # (0) underscore carriers at cursor: _a/_u/_i/_aa/_ei/_/_o
+            m0 = match_underscore_carrier(wraw, pos)
+            if m0 is not None:
+                key, tok, klen = m0
+                if tok in car_to_am:
+                    add(new_beam, pos + klen, car_str + tok, score + 0.9,
+                        reasons + [f"underscore_carrier={key}->{tok}"])
                     progressed = True
-                continue
-
+                    continue
+            # (0a) leading vowels at word-start behave like a-family carriers
+            mv = match_leading_vowel_as_a_family(wraw, pos)
+            if mv is not None:
+                key, tok, klen = mv
+                if tok in car_to_am:
+                    add(new_beam, pos + klen, car_str + tok, score + 0.85,
+                        reasons + [f"leading_vowel={key}->{tok}"])
+                    progressed = True
+                    continue
             matched_any = False
 
-            # (A) Case-marked digraphs: Sh/Kh/Ny/Zh/Ch
-            if pos + 1 < len(wraw):
-                dig2 = wraw[pos:pos+2]
-                base_cd = CASE_DIGRAPHS.get(dig2)
-                if base_cd is not None:
+            # (1) Standard base matching (longest-match because BASES ordered)
+            # for base in BASES:
+            #     if wlow.startswith(base, pos):
+            #         matched_any = True
+            #         b_end = pos + len(base)
+
+            #         # outer Latin-Std: no explicit variant digits here; variants are encoded in the base token itself (hx/hxx/cxx/etc.)
+            #         var = ""
+            #         base_score = score + 0.35
+            #         base_reasons = reasons + [f"base={base}"]
+
+            #         if emit_base_step(new_beam, b_end, base, var, base_score, base_reasons, car_str, wraw, wlow):
+            #             progressed = True
+            for base_tok in BASES:
+                if wlow.startswith(base_tok, pos):
                     matched_any = True
-                    base = base_cd
-                    b_end = pos + 2
-                    base_score = score + 0.9
-                    base_reasons = reasons + [f"case_digraph={dig2}->{base}"]
+                    b_end = pos + len(base_tok)
 
-                    var = ""
-                    if b_end < len(wlow) and wlow[b_end] in "12":
-                        var = wlow[b_end]
-                        b_end2 = b_end + 1
-                        base_score += 0.3
-                        base_reasons2 = base_reasons + [f"variant={var}"]
+                    # Map Latin base token -> CAR base (+ forced variant if needed)
+                    forced_var = ""
+                    if base_tok in LATIN_BASE_TO_CAR:
+                        car_base, forced_var = LATIN_BASE_TO_CAR[base_tok]
                     else:
-                        b_end2 = b_end
-                        base_reasons2 = base_reasons
+                        car_base = base_tok  # plain bases
 
-                    if emit_base_step(new_beam, b_end2, base, var, base_score, base_reasons2, car_str, wraw, wlow):
+                    var = forced_var  # outer layer encodes variants in the token itself
+                    base_score = score + 0.35
+                    base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
+
+                    if emit_base_step(new_beam, b_end, car_base, var, base_score, base_reasons, car_str, wraw, wlow):
                         progressed = True
-
-            # (A2) Habit support (AUTO): lowercase digraphs as single base, as alternatives
-            if pos + 1 < len(wlow):
-                dig2_low = wlow[pos:pos+2]
-                if dig2_low in AUTO_DISABLED_BASES:
-                    matched_any = True
-                    base = dig2_low
-                    b_end = pos + 2
-
-                    base_score = score + habit_strength * digraph_habit_bonus(wraw, pos)
-                    base_reasons = reasons + [f"habit_digraph={dig2_low}->{base}"]
-
-                    var = ""
-                    if b_end < len(wlow) and wlow[b_end] in "12":
-                        var = wlow[b_end]
-                        b_end2 = b_end + 1
-                        base_score += 0.1
-                        base_reasons2 = base_reasons + [f"variant={var}"]
-                    else:
-                        b_end2 = b_end
-                        base_reasons2 = base_reasons
-
-                    if emit_base_step(new_beam, b_end2, base, var, base_score, base_reasons2, car_str, wraw, wlow):
-                        progressed = True
-
-            # (B) Standard base matching. Lowercase digraph bases are disabled.
-            for base in BASES:
-                if base in AUTO_DISABLED_BASES:
-                    continue
-                if wlow.startswith(base, pos):
-                    matched_any = True
-                    b_end = pos + len(base)
-                    base_score = score + (0.8 if base.endswith("'") else 0.2)
-                    base_reasons = reasons + (["ejective_marked"] if base.endswith("'") else [])
-
-                    var = ""
-                    if b_end < len(wlow) and wlow[b_end] in "12":
-                        var = wlow[b_end]
-                        b_end2 = b_end + 1
-                        base_score += 0.3
-                        base_reasons2 = base_reasons + [f"variant={var}"]
-                    else:
-                        b_end2 = b_end
-                        base_reasons2 = base_reasons
-
-                    if emit_base_step(new_beam, b_end2, base, var, base_score, base_reasons2, car_str, wraw, wlow):
-                        progressed = True
-
             if not matched_any:
+                # Unknown character inside LAT chunk: skip (penalize) and continue.
                 new_beam.append((pos + 1, car_str, score - 1.5, reasons + [f"skipped:{wlow[pos]}"]))
                 progressed = True
 
@@ -904,7 +652,7 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
     if max_alts < 0:
         max_alts = 0
 
-    hs = float(options.get("habit_strength", 0.85))
+    hs = float(options.get("habit_strength", 0.0))
     hs = max(0.0, min(1.0, hs))
 
     for sp in spans:
@@ -913,11 +661,10 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
             span_meta.append({"kind": "ETH", "text": sp.text})
 
         elif sp.kind == "LAT":
-            # chunks = re.findall(r"[A-Za-z'0-9]+|[^A-Za-z'0-9]+", sp.text)
-            chunks = re.findall(r"[A-Za-z']+|[^A-Za-z']+", sp.text)
+            # Keep underscore and apostrophe in Latin “word” chunks:
+            chunks = re.findall(r"[A-Za-z'_]+|[^A-Za-z'_]+", sp.text)
             for chunk in chunks:
-                # if re.fullmatch(r"[A-Za-z'0-9]+", chunk):
-                if re.fullmatch(r"[A-Za-z']+", chunk):
+                if re.fullmatch(r"[A-Za-z'_]+", chunk):
                     cand = decode_latin_word_to_candidates(
                         chunk,
                         car_to_am,
@@ -979,13 +726,9 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
             out_text_parts.append(sp.text)
             span_meta.append({"kind": sp.kind, "text": sp.text})
 
-    # out_text = "".join(out_text_parts)
-    # out_text = normalize_ethiopic_text(out_text)
-
     out_text = "".join(out_text_parts)
     out_text = ascii_punct_to_ethiopic(out_text)
-    out_text = normalize_ethiopic_text(out_text)   # <-- this used to collapse whitespace
-
+    out_text = normalize_ethiopic_text(out_text)
 
     car_out_parts: List[str] = []
     for ch in out_text:
@@ -1020,6 +763,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
