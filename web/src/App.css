@@ -1,24 +1,52 @@
+/* ---------- Theme ---------- */
 :root {
-  --fg-main: #1f2937;          /* near-black */
-  --fg-muted: #0d3aee;         /* light blue-ish */
-  --fg-soft: #1a77e9;          /* lighter blue for secondary text */
-  --border: #e5e7eb;           /* light gray */
-  --border-soft: #d6e3ff;      /* subtle bluish border */
-  --bg-soft: #f9fafb;
+  --fg-main: #1f2937;
+  --fg-muted: #0d3aee;
+  --fg-soft: #1a77e9;
+
+  --border: #e5e7eb;
+  --border-soft: #d6e3ff;
+
   --bg-panel: #ffffff;
   --bg-chip: #f6f9ff;
   --bg-disabled: #f3f4f6;
+
   --danger: #b00020;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* layout */
-.app {
-  max-width: 1100px;
-  margin: 24px auto;
-  padding: 16px;
+/* ---------- Base ---------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+body {
   font-family: system-ui, sans-serif;
   color: var(--fg-main);
+  background: #fff;
+}
+
+/* ---------- Layout ---------- */
+.app {
+  width: min(1280px, calc(100vw - 32px));
+  margin: 20px auto;
+  padding: 16px;
+}
+
+@media (max-width: 520px) {
+  .app {
+    width: calc(100vw - 20px);
+    padding: 12px;
+  }
 }
 
 .grid-2 {
@@ -36,30 +64,21 @@
 .panel {
   border: 1px solid var(--border-soft);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
   background: var(--bg-panel);
 }
 
 .panel h3 {
-  margin-top: 0;
+  margin: 0 0 10px;
 }
 
-/* text */
-.muted {
-  color: var(--fg-muted);
+h2 {
+  margin: 10px 0 14px;
 }
 
-.soft {
-  color: var(--fg-soft);
-}
-
-.mono {
-  font-family: var(--mono);
-}
-
-.big {
-  font-size: 18px;
-}
+.muted { color: var(--fg-muted); }
+.soft { color: var(--fg-soft); }
+.mono { font-family: var(--mono); }
 
 .error {
   margin-top: 12px;
@@ -67,7 +86,6 @@
   white-space: pre-wrap;
 }
 
-/* controls */
 textarea,
 input,
 select {
@@ -76,7 +94,12 @@ select {
   border-radius: 10px;
   border: 1px solid #cbd7ea;
   font-size: 16px;
+  line-height: 1.4;
   background: #fff;
+}
+
+.text-surface {
+  width: 100%;
 }
 
 button {
@@ -91,7 +114,6 @@ button {
 button.secondary {
   border-color: #cbd7ea;
   background: var(--bg-chip);
-  font-weight: 600;
 }
 
 button:disabled {
@@ -106,72 +128,16 @@ button:disabled {
   margin-top: 10px;
 }
 
-/* key/value grids */
-.kv {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  row-gap: 8px;
-  column-gap: 10px;
+.active-toggle {
+  background: var(--fg-muted);
+  color: #fff;
+  border-color: var(--fg-muted);
 }
 
-.kv .key {
-  color: var(--fg-muted);
-}
-
-/* alternatives */
-.alt-list {
-  display: grid;
-  gap: 10px;
-}
-
-.alt-item {
-  border: 1px solid #eef3fb;
-  border-radius: 10px;
-  padding: 10px;
+.inactive-toggle {
   background: #fff;
-}
-
-.alt-header {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  align-items: baseline;
-}
-
-/* resolver */
-.resolver-row {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-top: 12px;
-}
-
-.badge {
-  font-size: 13px;
-  color: #b26a00; /* amber-ish warning */
-}
-
-/* stage-10+ additions: slider + hints + per-word swap */
-.controls {
-  justify-items: start; 
-  margin-top: 12px;
-  display: grid;
-  gap: 12px;
-}
-
-.control label {
-  display: block;
-  font-weight: 700;
-  margin-bottom: 6px;
   color: var(--fg-main);
-}
-
-.control input[type="range"] {
-  width: 320px;        /* not full width */
-  max-width: 100%;
-  padding: 0;
-  border: none;
+  border-color: #cbd7ea;
 }
 
 .hintline {
@@ -180,57 +146,49 @@ button:disabled {
   color: var(--fg-soft);
 }
 
-.hints summary {
-  cursor: pointer;
-  color: var(--fg-muted);
-  font-weight: 700;
-}
-
-.hints ul {
-  margin: 10px 0 0 18px;
-}
-
-.checkbox {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--fg-muted);
-  font-weight: 700;
-}
-
-/* word swap widgets */
-.wordchip select {
-  width: auto;
-  padding: 6px 10px;
+/* review Mode  */
+.review-surface {
+  border: 1px solid #f0d98c;
   border-radius: 10px;
-  border: 1px solid #cbd7ea;
-  background: var(--bg-chip);
-  font-size: 14px;
+  padding: 10px;
+  white-space: pre-wrap;
+  min-height: 2.8em;
+  background: #fff;
 }
 
-textarea.mono {
-  font-family: var(--mono);
+.review-surface::before {
+  content: "Review mode – click a word to change it";
+  display: block;
+  font-size: 13px;
+  color: #8a6d00;
+  margin-bottom: 6px;
 }
-
-
-
-
-
 
 .word {
   cursor: pointer;
-  padding: 0 2px;
-  border-radius: 6px;
+  padding: 2px 3px;
+  border-radius: 4px;
 }
 
-.word:hover {
-  background: #eef3fb;
+.review-surface .word {
+  background: #fff3b0;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
+.review-surface .word:hover {
+  background: #ffe08a;
+  box-shadow: 0 0 0 1px #f2b705;
+}
+
+.review-surface .word:active {
+  background: #ffd24d;
+}
+
+/* popover */
 .popover {
   position: fixed;
   z-index: 50;
-  background: white;
+  background: #fff;
   border: 1px solid var(--border-soft);
   border-radius: 10px;
   padding: 8px;
@@ -253,88 +211,11 @@ textarea.mono {
   border-color: #cbd7ea;
 }
 
-.review-surface {
-  border: 1px solid #cbd7ea;
-  border-radius: 10px;
-  padding: 10px;
-  background: #fff;
-  min-height: 120px; /* roughly textarea height */
-  white-space: pre-wrap;
-}
+/* helping guide */
 
-/* =========================
-   Review mode highlighting
-   ========================= */
-
-/* Base review surface background */
-.review-surface {
-  /* background: #f4f4f0;             */
-  border: 1px solid #f0d98c;
-}
-
-/* All words highlighted in review mode */
-.review-surface .word {
-  background: #fff3b0;            /* soft yellow */
-  padding: 2px 3px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-
-/* Hover / active word */
-.review-surface .word:hover {
-  background: #ffe08a;            /* stronger yellow */
-  box-shadow: 0 0 0 1px #f2b705;
-}
-
-/* Active word when popover is open */
-.review-surface .word:active {
-  background: #ffd24d;
-}
-
-/* Optional: subtle cue text */
-.review-surface::before {
-  content: "Review mode – click a word to change it";
-  display: block;
-  font-size: 13px;
-  color: #8a6d00;
-  margin-bottom: 6px;
-}
-
-
-.active-toggle {
-  background: var(--fg-muted);
-  color: white;
-  border-color: var(--fg-muted);
-}
-
-.inactive-toggle {
-  background: #fff;
-  color: var(--fg-main);
-  border-color: #cbd7ea;
-}
-
-
-
-
-.typing-help {
-  margin-top: 16px;
-}
-
-.typing-help-toggle {
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 14px;
-}
-
-.typing-help-content {
-  margin-top: 10px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 12px;
-  background: #fff;
+.typing-help-fab {
+  background: var(--bg-chip);
+  border: 1px solid var(--border-soft);
 }
 
 .typing-help-content table {
@@ -348,9 +229,16 @@ textarea.mono {
   border-bottom: 1px solid var(--border);
   padding: 6px 8px;
   text-align: left;
+  vertical-align: top;
 }
 
 .typing-help-content th {
   color: var(--fg-soft);
-  font-weight: 600;
+  font-weight: 700;
+}
+
+@media (max-width: 520px) {
+  .typing-help-content table {
+    font-size: 14px;
+  }
 }

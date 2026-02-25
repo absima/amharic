@@ -1,8 +1,9 @@
 // TypingHelp.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export default function TypingHelp() {
   const [open, setOpen] = useState(false);
+  const scrollRef = useRef(null);
 
   // Close on Escape
   useEffect(() => {
@@ -63,7 +64,6 @@ export default function TypingHelp() {
 
   return (
     <>
-      {/* Floating toggle button (always reachable) */}
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -104,32 +104,239 @@ export default function TypingHelp() {
             onClick={(e) => e.stopPropagation()}
             style={{
               width: "min(960px, 100%)",
-              maxHeight: "85vh",
-              overflow: "auto",
+              height: "85vh",          // ✅ stable modal height
               borderRadius: 14,
               background: "#fff",
-              padding: 16,
               boxShadow: "0 12px 30px rgba(0,0,0,0.25)",
+              overflow: "hidden",      // ✅ header/footer stay fixed, body scrolls
+              display: "flex",
+              flexDirection: "column",
             }}
             className="typing-help-content"
           >
-            {/* <div
+=            <div
               style={{
-                display: "flex",
-                alignItems: "start",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
+                position: "sticky",
+                top: 0,
+                zIndex: 2,
+                background: "#fff",
+                padding: 16,
+                borderBottom: "1px solid rgba(0,0,0,0.08)",
               }}
             >
-              <div>
-                <h3 style={{ margin: 0 }}>Latin-Std Typing Guide (v0)</h3>
-                <p className="muted" style={{ marginTop: 6 }}>
-                  Lowercase is standard. Uppercase has no special meaning in the
-                  new standard. Underscore (<span className="mono">_</span>)
-                  introduces independent አ-family vowels.
-                </p>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: "1 1 320px" }}>
+                  <h3
+                    style={{
+                      margin: 0,
+                      fontSize: "clamp(16px, 2.6vw, 22px)",
+                      lineHeight: 1.2,
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    Latin-Std Typing Guide (v0)
+                  </h3>
+
+                  <p className="muted" style={{ marginTop: 6, marginBottom: 0 }}>
+                    Lowercase is standard. Uppercase has no special meaning in the new standard.
+                    Underscore (<span className="mono">_</span>) introduces independent አ-family vowels.
+                  </p>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flex: "0 0 auto" }}>
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => {
+                      // jump to top of guide content
+                      scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    style={{ whiteSpace: "nowrap" }}
+                    title="Back to top of guide"
+                  >
+                    Top ↑
+                  </button>
+
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() => setOpen(false)}
+                    style={{ whiteSpace: "nowrap" }}
+                    title="Close"
+                  >
+                    Close ×
+                  </button>
+                </div>
               </div>
+            </div>
+
+            <div
+              ref={scrollRef}
+              style={{
+                padding: 16,
+                overflow: "auto",
+                WebkitOverflowScrolling: "touch",
+              }}
+            >
+              <section style={{ marginTop: 4 }}>
+                <h4>Quick rules</h4>
+                <ul className="soft" style={{ marginTop: 6 }}>
+                  <li>
+                    <b>Vowels normally attach</b> to the previous consonant:
+                    <span className="mono"> le lu li la lei l lo </span> →{" "}
+                    <span className="mono">ለ ሉ ሊ ላ ሌ ል ሎ</span>
+                  </li>
+                  <li>
+                    <b>Independent vowels</b> use underscore carriers:
+                    <span className="mono"> _a _u _i _aa _ei _ _o </span> →{" "}
+                    <span className="mono">አ ኡ ኢ ኣ ኤ እ ኦ</span>
+                  </li>
+                  <li>
+                    <b>Override after consonant</b> (force አ-family vowel) with{" "}
+                    <span className="mono">C_V</span>:{" "}
+                    <span className="mono">l_u</span> →{" "}
+                    <span className="mono">ልኡ</span>
+                  </li>
+                  <li>
+                    <b>Word-initial vowels</b> are treated like underscore carriers
+                    (convenience): <span className="mono">enkwan</span> begins with{" "}
+                    <span className="mono">e</span> →{" "}
+                    <span className="mono">እ</span>.
+                  </li>
+                  <li>
+                    <b>Order-8</b> uses <span className="mono">oa</span>:{" "}
+                    <span className="mono">loa</span> →{" "}
+                    <span className="mono">ሏ</span>
+                  </li>
+                </ul>
+              </section>
+
+              <section style={{ marginTop: 14 }}>
+                <h4>Independent vowel carriers (underscore)</h4>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Latin</th>
+                      <th>Ethiopic</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {carriers.map((r) => (
+                      <tr key={r.lat}>
+                        <td className="mono">{r.lat}</td>
+                        <td>{r.am}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="soft" style={{ marginTop: 8 }}>
+                  Note: At the start of a word, leading vowels behave like these
+                  carriers (e.g., <span className="mono">enkwan</span> starts with{" "}
+                  <span className="mono">e</span> → <span className="mono">እ</span>).
+                </p>
+              </section>
+
+              <section style={{ marginTop: 14 }}>
+                <h4>Vowels after consonants (orders)</h4>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Latin</th>
+                      <th>Meaning</th>
+                      <th>Example</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {attachedVowels.map((r) => (
+                      <tr key={r.lat}>
+                        <td className="mono">{r.lat}</td>
+                        <td>{r.meaning}</td>
+                        <td className="mono">{r.ex}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </section>
+
+              <section style={{ marginTop: 14 }}>
+                <h4>Special / variant consonant bases</h4>
+                <p className="muted" style={{ marginTop: 6 }}>
+                  Bases that don’t have a clean Latin spelling (or variant families) use{" "}
+                  <span className="mono">x</span> / <span className="mono">xx</span>.
+                </p>
+
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Latin base</th>
+                      <th>Ethiopic base</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {specialBases.map((r) => (
+                      <tr key={r.lat}>
+                        <td className="mono">{r.lat}</td>
+                        <td>{r.am}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <p className="soft" style={{ marginTop: 8 }}>
+                  Example: <span className="mono">txa</span> → <span className="mono">ጣ</span>,{" "}
+                  <span className="mono">cxxo</span> → <span className="mono">ፆ</span>.
+                </p>
+              </section>
+
+              <section style={{ marginTop: 14 }}>
+                <h4>Ambiguity / alternatives</h4>
+                <p className="muted" style={{ marginTop: 6 }}>
+                  When multiple interpretations exist, the system may surface alternatives.
+                  Review mode lets you switch outputs word by word.
+                </p>
+                <p className="soft" style={{ marginTop: 6 }}>
+                  Tip: Use <span className="mono">_</span> to remove ambiguity explicitly
+                  (e.g., <span className="mono">l_u</span>).
+                </p>
+              </section>
+
+              <div style={{ height: 18 }} />
+            </div>
+
+            <div
+              style={{
+                position: "sticky",
+                bottom: 0,
+                zIndex: 2,
+                background: "#fff",
+                padding: 12,
+                borderTop: "1px solid rgba(0,0,0,0.08)",
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 8,
+              }}
+            >
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  scrollRef.current?.scrollTo({
+                    top: scrollRef.current?.scrollHeight ?? 0,
+                    behavior: "smooth",
+                  });
+                }}
+                title="Jump to end"
+              >
+                End ↓
+              </button>
 
               <button
                 type="button"
@@ -139,179 +346,7 @@ export default function TypingHelp() {
               >
                 Close ×
               </button>
-            </div> */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                justifyContent: "space-between",
-                gap: 12,
-                marginBottom: 10,
-                flexWrap: "wrap",        // ✅ allow wrap on mobile
-              }}
-            >
-              <div style={{ minWidth: 0, flex: "1 1 320px" }}> {/* ✅ allow title to wrap nicely */}
-                <h3
-                  style={{
-                    margin: 0,
-                    fontSize: "clamp(16px, 2.6vw, 22px)",       // ✅ responsive
-                    lineHeight: 1.2,
-                    wordBreak: "break-word",
-                  }}
-                >
-                  Latin-Std Typing Guide (v0)
-                </h3>
-
-                <p className="muted" style={{ marginTop: 6 }}>
-                  Lowercase is standard. Uppercase has no special meaning in the new standard.
-                  Underscore (<span className="mono">_</span>) introduces independent አ-family vowels.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="secondary"
-                onClick={() => setOpen(false)}
-                style={{
-                  whiteSpace: "nowrap",
-                  flex: "0 0 auto",
-                  alignSelf: "flex-start",
-                }}
-              >
-                Close ×
-              </button>
             </div>
-
-            {/* QUICK RULES */}
-            <section style={{ marginTop: 10 }}>
-              <h4>Quick rules</h4>
-              <ul className="soft" style={{ marginTop: 6 }}>
-                <li>
-                  <b>Vowels normally attach</b> to the previous consonant:
-                  <span className="mono"> le lu li la lei l lo </span> →{" "}
-                  <span className="mono">ለ ሉ ሊ ላ ሌ ል ሎ</span>
-                </li>
-                <li>
-                  <b>Independent vowels</b> use underscore carriers:
-                  <span className="mono"> _a _u _i _aa _ei _ _o </span> →{" "}
-                  <span className="mono">አ ኡ ኢ ኣ ኤ እ ኦ</span>
-                </li>
-                <li>
-                  <b>Override after consonant</b> (force አ-family vowel) with{" "}
-                  <span className="mono">C_V</span>:{" "}
-                  <span className="mono">l_u</span> →{" "}
-                  <span className="mono">ልኡ</span>
-                </li>
-                <li>
-                  <b>Word-initial vowels</b> are treated like underscore carriers
-                  (convenience): <span className="mono">enkwan</span> begins with{" "}
-                  <span className="mono">e</span> →{" "}
-                  <span className="mono">እ</span>.
-                </li>
-                <li>
-                  <b>Order-8</b> uses <span className="mono">oa</span>:{" "}
-                  <span className="mono">loa</span> →{" "}
-                  <span className="mono">ሏ</span>
-                </li>
-              </ul>
-            </section>
-
-            {/* VOWEL CARRIERS */}
-            <section style={{ marginTop: 14 }}>
-              <h4>Independent vowel carriers (underscore)</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Latin</th>
-                    <th>Ethiopic</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {carriers.map((r) => (
-                    <tr key={r.lat}>
-                      <td className="mono">{r.lat}</td>
-                      <td>{r.am}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <p className="soft" style={{ marginTop: 8 }}>
-                Note: At the start of a word, leading vowels behave like these
-                carriers (e.g., <span className="mono">enkwan</span> starts with
-                <span className="mono"> e</span> → <span className="mono">እ</span>).
-              </p>
-            </section>
-
-            {/* VOWELS AFTER CONSONANTS */}
-            <section style={{ marginTop: 14 }}>
-              <h4>Vowels after consonants (orders)</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Latin</th>
-                    <th>Meaning</th>
-                    <th>Example</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {attachedVowels.map((r) => (
-                    <tr key={r.lat}>
-                      <td className="mono">{r.lat}</td>
-                      <td>{r.meaning}</td>
-                      <td className="mono">{r.ex}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-
-            {/* SPECIAL BASES */}
-            <section style={{ marginTop: 14 }}>
-              <h4>Special / variant consonant bases</h4>
-              <p className="muted" style={{ marginTop: 6 }}>
-                Bases that don’t have a clean Latin spelling (or variant
-                families) use <span className="mono">x</span> /{" "}
-                <span className="mono">xx</span>.
-              </p>
-
-              <table>
-                <thead>
-                  <tr>
-                    <th>Latin base</th>
-                    <th>Ethiopic base</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {specialBases.map((r) => (
-                    <tr key={r.lat}>
-                      <td className="mono">{r.lat}</td>
-                      <td>{r.am}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <p className="soft" style={{ marginTop: 8 }}>
-                Example: <span className="mono">txa</span> →{" "}
-                <span className="mono">ጣ</span>,{" "}
-                <span className="mono">cxxo</span> →{" "}
-                <span className="mono">ፆ</span>.
-              </p>
-            </section>
-
-            {/* SLIDER NOTE (if you still want it) */}
-            <section style={{ marginTop: 14 }}>
-              <h4>Ambiguity / alternatives</h4>
-              <p className="muted" style={{ marginTop: 6 }}>
-                When multiple interpretations exist, the system may surface
-                alternatives. (Your UI review mode lets you switch outputs word by
-                word.)
-              </p>
-              <p className="soft" style={{ marginTop: 6 }}>
-                Tip: Use <span className="mono">_</span> to remove ambiguity
-                explicitly (e.g., <span className="mono">l_u</span>).
-              </p>
-            </section>
           </div>
         </div>
       )}
@@ -319,142 +354,3 @@ export default function TypingHelp() {
   );
 }
 
-// import { useState } from "react";
-
-// export default function TypingHelp() {
-//   const [open, setOpen] = useState(false);
-
-//   return (
-//     <div className="typing-help">
-//       <button
-//         className="typing-help-toggle"
-//         onClick={() => setOpen(!open)}
-//       >
-//         {open ? "Hide ×" : "Show standard typing rules"}
-//       </button>
-
-//       {open && (
-//         <div className="typing-help-content">
-//           <h3>Latin-Std Typing Guide (v0)</h3>
-
-//           <p className="muted">
-//             Lowercase is standard. Uppercase has semantic meaning.
-//           </p>
-
-//           {/* ---------------- VOWEL CARRIERS ---------------- */}
-//           <section>
-//             <h4>Standalone vowel carriers (uppercase)</h4>
-//             <table>
-//               <thead>
-//                 <tr>
-//                   <th>Latin</th>
-//                   <th>Ethiopic</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 <tr><td>A</td><td>አ</td></tr>
-//                 <tr><td>U</td><td>ኡ</td></tr>
-//                 <tr><td>I</td><td>ኢ</td></tr>
-//                 <tr><td>AA</td><td>ኣ</td></tr>
-//                 <tr><td>EE</td><td>ኤ</td></tr>
-//                 <tr><td>E</td><td>እ</td></tr>
-//                 <tr><td>O</td><td>ኦ</td></tr>
-//               </tbody>
-//             </table>
-//           </section>
-
-//           {/* ---------------- VOWELS AFTER CONSONANTS ---------------- */}
-//           <section>
-//             <h4>Vowels after consonants</h4>
-//             <table>
-//               <thead>
-//                 <tr>
-//                   <th>Latin</th>
-//                   <th>Meaning</th>
-//                   <th>Example</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 <tr><td>e</td><td>order 1</td><td>le → ለ</td></tr>
-//                 <tr><td>u</td><td>order 2</td><td>lu → ሉ</td></tr>
-//                 <tr><td>i</td><td>order 3</td><td>li → ሊ</td></tr>
-//                 <tr><td>a</td><td>order 4</td><td>la → ላ</td></tr>
-//                 <tr><td>Ei</td><td>order 5 (locked)</td><td>lEi → ሌ</td></tr>
-//                 <tr><td>(none)</td><td>order 6</td><td>l → ል</td></tr>
-//                 <tr><td>o</td><td>order 7</td><td>lo → ሎ</td></tr>
-//               </tbody>
-//             </table>
-//           </section>
-
-//           {/* ---------------- EXPLICIT BASES ---------------- */}
-//           <section>
-//             <h4>Explicit consonant bases (uppercase)</h4>
-//             <table>
-//               <thead>
-//                 <tr>
-//                   <th>Latin</th>
-//                   <th>Ethiopic</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 <tr><td>S</td><td>ሸ</td></tr>
-//                 <tr><td>K</td><td>ኸ</td></tr>
-//                 <tr><td>N</td><td>ኘ</td></tr>
-//                 <tr><td>Z</td><td>ዠ</td></tr>
-//                 <tr><td>X</td><td>ጸ</td></tr>
-//                 <tr><td>P</td><td>ጰ</td></tr>
-//                 <tr><td>T</td><td>ጠ</td></tr>
-//                 <tr><td>C</td><td>ጨ</td></tr>
-//                 <tr><td>c</td><td>ቸ</td></tr>
-//               </tbody>
-//             </table>
-//           </section>
-
-//           {/* ---------------- SLIDER EXPLANATION ---------------- */}
-//           <section className="slider-help">
-//             <h4>Ambiguity preference (slider)</h4>
-
-//             <p className="muted">
-//               The slider controls how strongly the system prefers the
-//               <b> standard rule</b> versus <b>common typing habits</b>.
-//               <br />
-//               The standard interpretation is never changed — habits only affect
-//               alternative suggestions and their priority.
-//             </p>
-
-//             <table className="example-table">
-//               <thead>
-//                 <tr>
-//                   <th>Input</th>
-//                   <th>Standard (rule)</th>
-//                   <th>Customary (habit)</th>
-//                 </tr>
-//               </thead>
-//               <tbody>
-//                 <tr>
-//                   <td className="mono">tewash</td>
-//                   <td>ተዋስህ</td>
-//                   <td>ተዋሽ</td>
-//                 </tr>
-//                 <tr>
-//                   <td className="mono">mgib</td>
-//                   <td>ምጊብ</td>
-//                   <td>ምግብ</td>
-//                 </tr>
-//               </tbody>
-//             </table>
-
-//             <p className="soft">
-//               • Move the slider toward <b>Standard</b> to prioritize strict Latin-Std rules.<br />
-//               • Move it toward <b>Habit</b> to surface common user interpretations more prominently.
-//             </p>
-//           </section>
-
-//           <p className="soft">
-//             Tip: Convert ALL-CAPS text to lowercase before typing for best results.
-//           </p>
-//         </div>
-//       )}
-//     </div>
-//   );
-// }

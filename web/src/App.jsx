@@ -1,6 +1,5 @@
 
-// App.jsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import TypingHelp from "./TypingHelp";
 import "./App.css";
 
@@ -8,8 +7,16 @@ const API_BASE_RAW = import.meta.env.VITE_API_BASE_URL;
 const API_BASE = API_BASE_RAW.endsWith("/") ? API_BASE_RAW : API_BASE_RAW + "/";
 const NORMALIZE_URL = API_BASE + "normalize";
 
-const DEFAULT_LAT = "selam! enkoan dehna metxu!";
-const DEFAULT_AM = "ሰላም! እንኳን ደህና መጡ!";
+const DEFAULT_LAT = "selam!\nenkoan dehna metxu!";
+const DEFAULT_AM = "ሰላም!\nእንኳን ደህና መጡ!";
+
+// -input sizing 
+const MAX_CHARS = 500; // hard cap
+const AUTO_RESIZE_UP_TO = 200; // autosize up to this; beyond -> lock height + scroll
+const MIN_ROWS = 2;
+const MAX_ROWS = 10; 
+
+const HABIT_STRENGTH = 0.85;
 
 async function fetchJson(url, options) {
   const res = await fetch(url, options);
@@ -21,14 +28,7 @@ async function copyToClipboard(text) {
   await navigator.clipboard.writeText(text);
 }
 
-/**
- * Review tokenization:
- * - ws: whitespace
- * - word: letters/digits/'/_ (any script via \p{L}\p{N})
- * - punct: everything else (including ። and .)
- *
- * This allows punctuation to be clicked/edited independently in review mode.
- */
+
 function tokenizeForReview(text) {
   const re = /(\s+)|([\p{L}\p{N}'_]+)|([^\s\p{L}\p{N}'_]+)/gu;
   const tokens = [];
@@ -50,34 +50,95 @@ function extractWords(text) {
     .map((t) => t.text);
 }
 
+
+function useAutosizeWithThresholdLock(
+  ref,
+  value,
+  {
+    enabled = true, // if false, do nothing
+    threshold = AUTO_RESIZE_UP_TO,
+    minRows = MIN_ROWS,
+    maxRows = MAX_ROWS,
+    lockHeightRef, // useRef<number|null>
+  } = {}
+) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (!enabled) return;
+
+    const len = (value ?? "").length;
+
+    const cs = window.getComputedStyle(el);
+    const lineHeight = parseFloat(cs.lineHeight || "20") || 20;
+    const paddingTop = parseFloat(cs.paddingTop || "0") || 0;
+    const paddingBottom = parseFloat(cs.paddingBottom || "0") || 0;
+    const borderTop = parseFloat(cs.borderTopWidth || "0") || 0;
+    const borderBottom = parseFloat(cs.borderBottomWidth || "0") || 0;
+
+    const minH =
+      minRows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
+    const maxH =
+      maxRows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
+
+    // if we are at/under threshold -> autosize and clear any old lock.
+    if (len <= threshold) {
+      if (lockHeightRef) lockHeightRef.current = null;
+
+      el.style.height = "auto";
+      el.style.overflowY = "hidden";
+
+      const nextH = Math.min(Math.max(el.scrollHeight, minH), maxH);
+      el.style.height = `${nextH}px`;
+      el.style.overflowY = el.scrollHeight > maxH ? "auto" : "hidden";
+      return;
+    }
+
+    // above threshold:
+    // lock height to whatever we had when we first crossed the threshold.
+    // If no lock yet, compute an autosized height and lock it.
+    if (!lockHeightRef) {
+      // fallback: lock to maxH if no ref provided
+      el.style.height = `${maxH}px`;
+      el.style.overflowY = "auto";
+      return;
+    }
+
+    if (lockHeightRef.current == null) {
+      // measure the "natural" height right now (bounded) and freeze it
+      el.style.height = "auto";
+      el.style.overflowY = "hidden";
+
+      const nextH = Math.min(Math.max(el.scrollHeight, minH), maxH);
+      lockHeightRef.current = nextH;
+    }
+
+    el.style.height = `${lockHeightRef.current}px`;
+    el.style.overflowY = "auto";
+  }, [ref, value, enabled, threshold, minRows, maxRows, lockHeightRef]);
+}
+
 export default function App() {
-  // mode: "lat_to_am" | "am_to_lat"
+  // mode: "lat_to_am" or "am_to_lat"
   const [mode, setMode] = useState("lat_to_am");
 
-  // canonical “current inputs”
+  // canonical inputs
   const [latinText, setLatinText] = useState(DEFAULT_LAT);
   const [amText, setAmText] = useState(DEFAULT_AM);
 
-  // slider
-  const [habitStrength, setHabitStrength] = useState(0.85);
-
-  // output state
+  // output state ( for debugging / future use)
   const [result, setResult] = useState(null);
 
   // review state (Amharic output only, for lat_to_am)
   const [reviewMode, setReviewMode] = useState(false);
   const [outTokens, setOutTokens] = useState(null);
 
-  // IMPORTANT: store the Latin word list that produced the current output
-  // We use this to fetch alternatives during review, since Ethiopic->Ethiopic is deterministic.
+  // Store the Latin word list that produced the current output
   const [latinWords, setLatinWords] = useState([]);
 
-  // Single active review popover (word alternatives)
-  const [reviewOne, setReviewOne] = useState(null); // { idxToken, wordOrdinal, srcLatin, srcAm, choices:[{label,text_am}] }
-
-  // Single active punctuation popover (minimal: full stop only)
-  const [reviewPunct, setReviewPunct] = useState(null); // { idxToken, src, choices:[{label,text}] }
-
+  // poppers
+  const [reviewOne, setReviewOne] = useState(null);
+  const [reviewPunct, setReviewPunct] = useState(null);
   const [popover, setPopover] = useState({ open: false, x: 0, y: 0 });
 
   const [err, setErr] = useState("");
@@ -89,13 +150,52 @@ export default function App() {
   const latinLabel = `Latin ${latinIsInput ? "(input)" : "(output)"}`;
   const amLabel = `Amharic ${amIsInput ? "(input)" : "(output)"}`;
 
+  // refs for autosizing
+  const latinTaRef = useRef(null);
+  const amTaRef = useRef(null);
+
+  // locks -- height at threshold (pixel height, not rows)
+  const latinLockHRef = useRef(null);
+  const amLockHRef = useRef(null);
+
+  const finalAm = useMemo(() => {
+    if (mode !== "lat_to_am") return amText;
+    if (outTokens) return tokensToText(outTokens);
+    return amText;
+  }, [mode, amText, outTokens]);
+
+  // autosize Latin always (textarea always mounted)
+  useAutosizeWithThresholdLock(latinTaRef, latinText, {
+    enabled: true,
+    lockHeightRef: latinLockHRef,
+  });
+
+  // Autosize Amharic only when textarea exists (not review div)
+  useAutosizeWithThresholdLock(amTaRef, finalAm, {
+    enabled: !(mode === "lat_to_am" && reviewMode),
+    lockHeightRef: amLockHRef,
+  });
+
+  // ESC key closes popovers; also ends review mode
+  useEffect(() => {
+    const onKeyDown = (e) => {
+      if (e.key !== "Escape") return;
+      closePopover();
+      if (reviewMode) {
+        setReviewMode(false);
+        setAmText((prev) => prev);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reviewMode]);
+
   function resetReviewState() {
     setReviewMode(false);
     setOutTokens(null);
     setReviewOne(null);
     setReviewPunct(null);
     setPopover({ open: false, x: 0, y: 0 });
-    // latinWords persists until next RUN in lat_to_am
   }
 
   function closePopover() {
@@ -121,7 +221,7 @@ export default function App() {
               return_alternatives: true,
               max_alternatives: 5,
               latin_mode: "auto",
-              habit_strength: habitStrength,
+              habit_strength: HABIT_STRENGTH,
             };
 
       const data = await fetchJson(NORMALIZE_URL, {
@@ -136,8 +236,6 @@ export default function App() {
         const bestAm = data.text_am ?? "";
         setAmText(bestAm);
         setOutTokens(tokenizeForReview(bestAm));
-
-        // Store Latin word list for review mapping
         setLatinWords(extractWords(latinText));
       } else {
         setLatinText(data.latin_std ?? "");
@@ -150,7 +248,6 @@ export default function App() {
   }
 
   function tokenIndexToWordOrdinal(tokens, tokenIdx) {
-    // Count how many word tokens occur before tokenIdx
     let ord = 0;
     for (let i = 0; i < tokenIdx; i++) {
       if (tokens[i]?.kind === "word") ord += 1;
@@ -166,7 +263,6 @@ export default function App() {
     const tok = outTokens[tokenIdx];
     if (!tok || tok.kind !== "word") return;
 
-    // allow switching focus by closing current popover
     if (reviewOne || reviewPunct) closePopover();
 
     const rect = evt.currentTarget.getBoundingClientRect();
@@ -196,7 +292,7 @@ export default function App() {
             return_alternatives: true,
             max_alternatives: 10,
             latin_mode: "auto",
-            habit_strength: habitStrength,
+            habit_strength: HABIT_STRENGTH,
           },
         }),
       });
@@ -247,14 +343,9 @@ export default function App() {
     const y = rect.bottom + 6;
 
     const src = tok.text;
-    const choices = [];
+    const choices = [{ label: "Current", text: src }];
 
-    choices.push({ label: "Current", text: src });
-
-    if (src.includes("።")) {
-      choices.push({ label: "Use .", text: src.replaceAll("።", ".") });
-    }
-
+    if (src.includes("።")) choices.push({ label: "Use .", text: src.replaceAll("።", ".") });
     if (src.includes(".")) {
       choices.push({ label: "Use ።", text: src.replaceAll(".", "።") });
       choices.push({ label: "Keep .", text: src });
@@ -266,24 +357,11 @@ export default function App() {
     setPopover({ open: true, x, y });
   }
 
-  const finalAm = useMemo(() => {
-    if (mode !== "lat_to_am") return amText;
-    if (outTokens) return tokensToText(outTokens);
-    return amText;
-  }, [mode, outTokens, amText]);
+  const latinCountLabel = `${latinText.length}/${MAX_CHARS}`;
+  const amCountLabel = `${finalAm.length}/${MAX_CHARS}`;
 
-  // simple helper: render a placeholder button that takes space but isn't seen/clickable
-  const PhantomButton = ({ className = "secondary", children = "—" }) => (
-    <button
-      className={className}
-      style={{ visibility: "hidden" }}
-      aria-hidden="true"
-      tabIndex={-1}
-      type="button"
-    >
-      {children}
-    </button>
-  );
+  const latinOver = latinText.length > AUTO_RESIZE_UP_TO;
+  const amOver = finalAm.length > AUTO_RESIZE_UP_TO;
 
   return (
     <div
@@ -292,11 +370,9 @@ export default function App() {
         if (popover.open) closePopover();
       }}
     >
-     <TypingHelp /> 
+      <TypingHelp />
+
       <h2>Amharic Normalizer (AN-v0)</h2>
-      <p className="muted">
-        Two consistent boxes: Latin and Amharic. Switch direction as needed.
-      </p>
 
       <div className="panel">
         <div className="button-row" style={{ marginTop: 0 }}>
@@ -323,44 +399,6 @@ export default function App() {
             Latin ← Ethiopic
           </button>
         </div>
-
-        {/* KEEP THIS AREA ALWAYS RENDERED SO THE PAGE HEIGHT DOESN'T JUMP */}
-        <div className="controls">
-          {mode === "lat_to_am" ? (
-            <>
-              <div className="control">
-                <label>
-                  Habit strength{" "}
-                  <span className="muted">({habitStrength.toFixed(2)})</span>
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={habitStrength}
-                  onChange={(e) => setHabitStrength(Number(e.target.value))}
-                />
-                <div className="hintline">
-                  0 = strict-ish, 1 = assistive (habit-biased).
-                </div>
-              </div>
-              {/* <TypingHelp /> */}
-            </>
-          ) : (
-            <>
-              {/* Placeholder block with same footprint */}
-              <div className="control" style={{ visibility: "hidden" }} aria-hidden="true">
-                <label>Habit strength</label>
-                <input type="range" min="0" max="1" step="0.05" value={habitStrength} readOnly />
-                <div className="hintline">placeholder</div>
-              </div>
-              <div style={{ visibility: "hidden" }} aria-hidden="true">
-                {/* <TypingHelp /> */}
-              </div>
-            </>
-          )}
-        </div>
       </div>
 
       <div className="grid-2">
@@ -368,62 +406,43 @@ export default function App() {
         <div className="panel">
           <h3>{latinLabel}</h3>
 
-          {/* <textarea
-            className="text-surface"
-            rows={8}
-            value={latinText}
-            onChange={(e) => latinIsInput && setLatinText(e.target.value)}
-            readOnly={!latinIsInput}
-            placeholder={
-              latinIsInput ? "Type Latin… e.g. tarfiyalesh, migib, hEi" : ""
-            }
-          /> */}
           <textarea
+            ref={latinTaRef}
             className="text-surface"
-            rows={2}
-            style={{ resize: "vertical" }}       // ✅ user can stretch
-            maxLength={200}                      // ✅ limit
+            rows={MIN_ROWS}
+            maxLength={MAX_CHARS}
             value={latinText}
             onChange={(e) => latinIsInput && setLatinText(e.target.value)}
             readOnly={!latinIsInput}
-            placeholder={latinIsInput ? "Type Latin… e.g. selam, enkwan, l_u" : ""}
+            placeholder={latinIsInput ? "Type Latin…\ne.g. selam, enkwan, l_u" : ""}
+            style={{ resize: "none" }}
           />
+
           {latinIsInput && (
             <div className="hintline">
-              {latinText.length}/200
+              {latinCountLabel}
+              {latinOver && (
+                <>
+                  {" "}
+                  · fixed display size after {AUTO_RESIZE_UP_TO} chars (scroll enabled)
+                </>
+              )}
             </div>
-          )}          
+          )}
 
-          {/* KEEP BUTTON ROW ALWAYS PRESENT so the panel height stays stable */}
           <div className="button-row">
             {latinIsInput ? (
-              <>
-                <button onClick={runNormalize} disabled={loading || !latinText.trim()}>
-                  {loading ? "Running…" : "Run"}
-                </button>
-                <button
-                  className="secondary"
-                  onClick={() => setLatinText("tarfiyalesh")}
-                >
-                  Example: sh ambiguity
-                </button>
-                <button className="secondary" onClick={() => setLatinText("migib")}>
-                  Example: habit (migib)
-                </button>
-              </>
+              <button onClick={runNormalize} disabled={loading || !latinText.trim()}>
+                {loading ? "Running…" : "Run"}
+              </button>
             ) : (
-              <>
-                <button
-                  className="secondary"
-                  onClick={async () => await copyToClipboard(latinText)}
-                  disabled={!latinText.trim()}
-                >
-                  Copy
-                </button>
-                {/* phantom buttons preserve height + layout */}
-                <PhantomButton>Example: sh ambiguity</PhantomButton>
-                <PhantomButton>Example: habit (migib)</PhantomButton>
-              </>
+              <button
+                className="secondary"
+                onClick={async () => await copyToClipboard(latinText)}
+                disabled={!latinText.trim()}
+              >
+                Copy
+              </button>
             )}
           </div>
         </div>
@@ -466,35 +485,34 @@ export default function App() {
                 )
               )}
             </div>
-          // ) : (
-          //   <textarea
-          //     className="text-surface"
-          //     rows={8}
-          //     value={finalAm}
-          //     onChange={(e) => amIsInput && setAmText(e.target.value)}
-          //     readOnly={!amIsInput}
-          //     placeholder={amIsInput ? "Paste Ethiopic text… e.g. ታርፋለህ" : ""}
-          //   />
-          // )}
           ) : (
             <>
               <textarea
+                ref={amTaRef}
                 className="text-surface"
-                rows={2}
-                style={{ resize: "vertical" }}
-                maxLength={200}
+                rows={MIN_ROWS}
+                maxLength={MAX_CHARS}
                 value={finalAm}
                 onChange={(e) => amIsInput && setAmText(e.target.value)}
                 readOnly={!amIsInput}
-                placeholder={amIsInput ? "Paste Ethiopic text… e.g. ሰላም" : ""}
+                placeholder={amIsInput ? "Paste Ethiopic text…\ne.g. ሰላም" : ""}
+                style={{ resize: "none" }}
               />
+
               {amIsInput && (
                 <div className="hintline">
-                  {finalAm.length}/200
+                  {amCountLabel}
+                  {amOver && (
+                    <>
+                      {" "}
+                      · fixed display size after {AUTO_RESIZE_UP_TO} chars (scroll enabled)
+                    </>
+                  )}
                 </div>
               )}
             </>
           )}
+
           <div className="button-row">
             {amIsInput ? (
               <button onClick={runNormalize} disabled={loading || !amText.trim()}>
@@ -545,8 +563,6 @@ export default function App() {
               </>
             )}
           </div>
-
-          {/* <TypingHelp /> */}
 
           {popover.open && (reviewOne || reviewPunct) ? (
             <div
@@ -632,15 +648,6 @@ export default function App() {
           <pre className="error">{err}</pre>
         </div>
       )}
-
-      {/* --- dev details (comment out when you’re ready) ---
-      <div className="panel">
-        <details>
-          <summary>Debug: raw JSON</summary>
-          <pre className="mono">{JSON.stringify(result, null, 2)}</pre>
-        </details>
-      </div>
-      --- */}
     </div>
   );
 }

@@ -3,10 +3,14 @@
 AN-v0 Normalizer (reference implementation)
 
 - Uses CAR tables in tables/orders.tsv and tables/order8.tsv
-- Stage A: segment scripts
-- Stage B: Ethiopic normalization (whitespace + ፡ -> space)
-- Stage C: Latin decoding (outer-layer Latin-Std -> CAR, ambiguity surfaced)
-- Stage D/E: merge + final CAR encoding
+- Stage1: segment scripts
+- Stage2: Ethiopic normalization (whitespace + ፡ -> space)
+- Stage3: Latin decoding (outer-layer Latin-Std -> CAR, ambiguity surfaced)
+- Stage4/5: merge + final CAR encoding
+
+Important policy (v0):
+- The displayed output (best) is always the Standard Latin-Std parse.
+- “Habits / aliases” are used ONLY to populate the alternatives list for review.
 """
 
 from __future__ import annotations
@@ -25,15 +29,13 @@ from .paths import data_path
 TABLES = data_path("tables")
 
 
-# Ethiopic basic block range (good enough for Amharic v0 work)
+# Ethiopic basic block range 
 def is_ethiopic_char(ch: str) -> bool:
     o = ord(ch)
     return 0x1200 <= o <= 0x137F
 
 
 def is_latin_char(ch: str) -> bool:
-    # Include '_' because we use underscore carriers like _a, _ei, _ (a6).
-    # Include apostrophe as pass-through for future prosody/stress layers.
     return ("a" <= ch <= "z") or ("A" <= ch <= "Z") or ch in {"'", "_"}
 
 
@@ -92,7 +94,8 @@ def load_car_maps_cached() -> Tuple[Dict[str, str], Dict[str, str]]:
     return load_car_maps()
 
 
-# ---- Stage B: Ethiopic normalization (v0) ----
+#Ethiopic normalization (v0) -
+
 # Preserve spaces/newlines; only normalize ፡ -> space
 def normalize_ethiopic_text(s: str) -> str:
     return (s or "").replace("፡", " ")
@@ -123,16 +126,6 @@ _CLOSERS = set(' \t\r\n")]}›»’”')  # treat '.' before these as sentence e
 
 
 def ascii_punct_to_ethiopic(s: str) -> str:
-    """
-    Convert ASCII punctuation in Latin-input chunks to Ethiopic punctuation
-    according to the v0 table, with a conservative "smart period" rule.
-
-    - '::' -> ፦
-    - ','  -> ፣
-    - ';'  -> ፤
-    - ':'  -> ፥  (but keep ':' in '://')
-    - '.'  -> ።  only when it looks like a sentence end; keep '.' for abbreviations/decimals
-    """
     if not s:
         return s
 
@@ -211,7 +204,7 @@ def ascii_punct_to_ethiopic(s: str) -> str:
     return "".join(out)
 
 
-# ---- Stage A: segmentation ----
+# segmentation -
 @dataclass
 class Span:
     kind: str  # "ETH" | "LAT" | "NUM" | "SEP"
@@ -248,18 +241,33 @@ def segment_scripts(s: str) -> List[Span]:
     return spans
 
 
-# ---- Stage C: Latin decoding (outer Latin-Std) ----
+# Latin decoding (outer Latin-Std) --
 
-# Canonical Latin-Std base tokens (outer layer).
+# Standard Latin-Std base tokens (outer layer).
 # IMPORTANT: longest-match matters; keep longer tokens first.
-BASES = [
+BASES_STD = [
     # very long first
     "cxx", "chx", "shx", "hxx",
     # x-marked bases
     "kx", "nx", "zx", "cx", "px", "tx", "hx", "sx", "ax",
-    # regular digraphs (if you still accept them as-is)
-    "ch", "sh", "kh", "ny", "zh",
-    # singles
+    # regular digraphs that are part of the standard (e.g., ቸ)
+    "ch",
+    # singles...
+    "h", "l", "m", "r", "s", "q", "b", "t", "n", "k", "w", "z", "y", "d", "j", "g", "f", "p", "v",
+]
+
+# Assistive aliases (habits) used ONLY for alternatives:
+# ሸ=sh, ኘ=ny/gn, ኸ=kh, ዠ=zh, ጸ=ts (no apostrophe)
+BASES_ALT = [
+    # very long first
+    "cxx", "chx", "shx", "hxx",
+    # x-marked bases
+    "kx", "nx", "zx", "cx", "px", "tx", "hx", "sx", "ax",
+    # aliases (must come before singles)
+    "kh", "ny", "gn", "zh", "ts", "sh",
+    # regular digraphs
+    "ch",
+    # singles...
     "h", "l", "m", "r", "s", "q", "b", "t", "n", "k", "w", "z", "y", "d", "j", "g", "f", "p", "v",
 ]
 
@@ -267,7 +275,7 @@ BASES = [
 VOWEL_TO_ORDER = {"e": "1", "u": "2", "i": "3", "a": "4", "o": "7"}
 VOWEL2_TO_ORDER = {"ei": "5"}
 
-# Independent vowel carriers (a-family), underscore-prefixed:
+# independent vowel carriers (a-family), underscore-prefixed:
 # _a,_u,_i,_aa,_ei,_,_o -> አ ኡ ኢ ኣ ኤ እ ኦ
 UNDERSCORE_CARRIERS = {
     "_a":  "a1",
@@ -279,7 +287,7 @@ UNDERSCORE_CARRIERS = {
     "_o":  "a7",
 }
 
-# Optional lexicon fast-path
+# Optional lexicon fast-path (lowercase)
 LAT_LEXICON = {
     "yet": "y1t6",   # የት
     "bota": "b7t4",  # ቦታ
@@ -287,8 +295,6 @@ LAT_LEXICON = {
     "min": "m6n6",   # ምን
 }
 
-# Latin-Std base token -> (car_base, forced_variant)
-# forced_variant is "1"/"2" or "" when not needed.
 LATIN_BASE_TO_CAR = {
     # “not in Latin” / ejective / special
     "kx":  ("kh",  ""),
@@ -306,9 +312,18 @@ LATIN_BASE_TO_CAR = {
     "sx":  ("s",   "1"),  # ሠ
     "ax":  ("a",   "1"),  # ዐ (a-family variant treated as consonant family)
     "cxx": ("ts'", "1"),  # ፀ (variant of ጸ in your tables)
-
-    # plain ones map to themselves implicitly: "ch","h","l","m",...
 }
+
+# Assistive aliases: accepted ONLY in alternatives 
+COMMON_BASE_ALIASES = {
+    "kh": "kh",     # ኸ-family
+    "ny": "ny",     # ኘ-family
+    "gn": "ny",     # ኘ-family (common habit)
+    "zh": "zh",     # ዠ-family
+    "ts": "ts'",    # ጸ-family (no apostrophe in input)
+    "sh": "sh",     # ሸ-family
+}
+
 
 @dataclass
 class Candidate:
@@ -356,14 +371,16 @@ def decode_latin_word_to_candidates(
     car_to_am: Dict[str, str],
     latin_mode: str = "auto",
     habit_strength: float = 0.0,
+    enable_habits: bool = False,
+    enable_aliases: bool = False,
 ) -> List[Candidate]:
     """
     Decode a single Latin "word" into Candidate CAR strings.
 
-    Outer Latin-Std (case-free) rules:
+    Standard Latin-Std (case-free) rules:
     - Underscore carriers:
         _a,_u,_i,_aa,_ei,_,_o -> a1..a7
-    - Attached vowels:
+    -  Attached vowels:
         e,u,i,a,ei,(empty),o -> orders 1..7
     - Override vowels as አ-family after a consonant:
         C _vowel  => C6 + a(order)
@@ -371,7 +388,13 @@ def decode_latin_word_to_candidates(
     - Order-8 labialized suffix:
         C oa => C8
         Example: loa => l8 => ሏ
-    - Apostrophe (') is pass-through (reserved for future prosody); it is NOT an ejective marker here.
+    - Leading vowels at word start behave like a-family carriers:
+        enkwan == _enkwan  (e -> a6)
+
+    Habits / aliases (when enabled)  are intended for alternatives-only:
+    - Epenthetic i/e treated as order6 in some contexts
+    - Final vowel interpreted as a-family carrier (C + final a -> C6 + a1)
+    - Common aliases: sh/kh/ny/gn/zh/ts
     """
     w = (word or "").strip()
     if not w:
@@ -384,6 +407,9 @@ def decode_latin_word_to_candidates(
     wraw = w
     wlow = w.lower()
 
+    # clamp habit strength (used only for minor bonuses; safe to keep)
+    habit_strength = max(0.0, min(1.0, habit_strength))
+
     # 0) Lexicon fast-path (lowercased lookup)
     if wlow in LAT_LEXICON:
         car = LAT_LEXICON[wlow]
@@ -395,7 +421,9 @@ def decode_latin_word_to_candidates(
     if maybe is not None:
         return [Candidate(car=w, score=0.99, reasons=["parsed_as_car"])]
 
-    # Beam entries: (pos, car_str, score, reasons)
+    bases = BASES_ALT if enable_aliases else BASES_STD
+
+    # beam entries: (pos, car_str, score, reasons)
     beam: List[Tuple[int, str, float, List[str]]] = [(0, "", 0.0, [])]
     max_beam = 20
 
@@ -403,24 +431,14 @@ def decode_latin_word_to_candidates(
         beam_next.append((pos, car_add, score_add, reasons_add))
 
     def match_underscore_carrier(raw: str, pos: int) -> Optional[Tuple[str, str, int]]:
-        """
-        If raw[pos:] starts with an underscore-carrier, return (key, tok, length).
-        Longest-match first.
-        """
         if pos >= len(raw) or raw[pos] != "_":
             return None
         for key in ("_aa", "_ei", "_a", "_u", "_i", "_o", "_"):
             if raw.startswith(key, pos):
                 return key, UNDERSCORE_CARRIERS[key], len(key)
         return None
-    def match_leading_vowel_as_a_family(raw: str, pos: int) -> Optional[Tuple[str, str, int]]:
-        """
-        Input convenience: at word-start only, allow leading vowels to mean a-family carriers,
-        as if prefixed with underscore.
 
-        a,u,i,aa,ei,o -> a1,a2,a3,a4,a5,a7
-        e             -> a6  (because _ alone is your እ carrier)
-        """
+    def match_leading_vowel_as_a_family(raw: str, pos: int) -> Optional[Tuple[str, str, int]]:
         if pos != 0:
             return None
 
@@ -430,7 +448,7 @@ def decode_latin_word_to_candidates(
         if raw.startswith("ei", pos):
             return "ei", "a5", 2
 
-        ch = raw[pos:pos+1].lower()
+        ch = raw[pos:pos + 1].lower()
         if ch == "a":
             return "a", "a1", 1
         if ch == "u":
@@ -441,8 +459,8 @@ def decode_latin_word_to_candidates(
             return "o", "a7", 1
         if ch == "e":
             return "e", "a6", 1
+        return None
 
-        return None    
     def emit_base_step(
         new_beam: List[Tuple[int, str, float, List[str]]],
         pos_after_base: int,
@@ -454,24 +472,17 @@ def decode_latin_word_to_candidates(
         wraw: str,
         wlow: str,
     ) -> bool:
-        """
-        After we've identified a base (+ optional variant), emit possible transitions:
-        - order8 via "oa"
-        - underscore override: C _carrier => C6 + a#
-        - attached vowels ei/e/u/i/a/o
-        - no vowel => order6
-        """
+   
         b_end2 = pos_after_base
         progressed_local = False
 
-        # (1) Special order-8 suffix: "oa"
+        # (1) special order-8 suffix: "oa"
         if b_end2 + 1 < len(wlow) and wlow[b_end2:b_end2 + 2] == "oa":
             tok = f"{base}{var}8"
             if tok in car_to_am:
                 add(new_beam, b_end2 + 2, car_str + tok, base_score + 0.85,
                     base_reasons2 + ["vowel2=oa(order8)"])
                 return True
-            # if base doesn't support order8, fall through
 
         # (2) Underscore override after consonant: C _carrier => C6 + a(order)
         m = match_underscore_carrier(wraw, b_end2)
@@ -479,10 +490,14 @@ def decode_latin_word_to_candidates(
             key, a_tok, klen = m
             tok_c6 = f"{base}{var}6"
             if tok_c6 in car_to_am and a_tok in car_to_am:
-                add(new_beam, b_end2 + klen, car_str + tok_c6 + a_tok, base_score + 0.9,
-                    base_reasons2 + [f"underscore_override={key}->{tok_c6}+{a_tok}"])
+                add(
+                    new_beam,
+                    b_end2 + klen,
+                    car_str + tok_c6 + a_tok,
+                    base_score + 0.9,
+                    base_reasons2 + [f"underscore_override={key}->{tok_c6}+{a_tok}"],
+                )
                 progressed_local = True
-                # do not return; allow other paths too (beam search)
 
         matched_vowel = False
 
@@ -510,6 +525,55 @@ def decode_latin_word_to_candidates(
                     progressed_local = True
                     matched_vowel = True
 
+                # Habit alternative: treat i/e as epenthetic => order6, but ONLY if another consonant follows
+                if enable_habits and v1 in ("i", "e") and (b_end2 + 1) < len(wlow):
+                    nxt = wlow[b_end2 + 1]
+                    if nxt.isalpha() or nxt == "_":
+                        tok2 = f"{base}{var}6"
+                        if tok2 in car_to_am:
+                            add(
+                                new_beam,
+                                b_end2 + 1,             # consume the i/e
+                                car_str + tok2,
+                                base_score + (0.05 + 0.05 * habit_strength),
+                                base_reasons2 + [f"habit:{v1}->order6"],
+                            )
+                            progressed_local = True
+
+        # Habit: end-of-word independent-vowel alternative
+        # Example: dehna (standard ደህና) also offer ደህንአ
+        if enable_habits and b_end2 < len(wlow):
+            # final 'ei'
+            if (b_end2 + 1 == len(wlow) - 1) and wlow[b_end2:b_end2 + 2] == "ei":
+                tok_c6 = f"{base}{var}6"
+                a_tok = "a5"
+                if tok_c6 in car_to_am and a_tok in car_to_am:
+                    add(
+                        new_beam,
+                        b_end2 + 2,
+                        car_str + tok_c6 + a_tok,
+                        base_score + (0.06 + 0.06 * habit_strength),
+                        base_reasons2 + ["habit:final_ei_as_carrier"],
+                    )
+                    progressed_local = True
+
+            # final single-letter vowels
+            if b_end2 == len(wlow) - 1:
+                v1 = wlow[b_end2]
+                v_to_a = {"a": "a1", "u": "a2", "i": "a3", "e": "a6", "o": "a7"}
+                if v1 in v_to_a:
+                    tok_c6 = f"{base}{var}6"
+                    a_tok = v_to_a[v1]
+                    if tok_c6 in car_to_am and a_tok in car_to_am:
+                        add(
+                            new_beam,
+                            b_end2 + 1,
+                            car_str + tok_c6 + a_tok,
+                            base_score + (0.06 + 0.06 * habit_strength),
+                            base_reasons2 + [f"habit:final_{v1}_as_carrier"],
+                        )
+                        progressed_local = True
+
         # (5) no attached vowel => order6
         tok6 = f"{base}{var}6"
         if tok6 in car_to_am:
@@ -536,13 +600,13 @@ def decode_latin_word_to_candidates(
                 progressed = True
                 continue
 
-            # apostrophe is reserved for future prosody/stress; keep as passthrough by skipping
+            # apostrophe is reserved for future prosody/stress; i.e in our standard normalizer 
             if ch == "'":
                 new_beam.append((pos + 1, car_str, score - 0.15, reasons + ["skipped_apostrophe"]))
                 progressed = True
                 continue
 
-            # (0) underscore carriers at cursor: _a/_u/_i/_aa/_ei/_/_o
+            # (1) underscore carriers at cursor: _a/_u/_i/_aa/_ei/_/_o
             m0 = match_underscore_carrier(wraw, pos)
             if m0 is not None:
                 key, tok, klen = m0
@@ -551,7 +615,8 @@ def decode_latin_word_to_candidates(
                         reasons + [f"underscore_carrier={key}->{tok}"])
                     progressed = True
                     continue
-            # (0a) leading vowels at word-start behave like a-family carriers
+
+            # (2) leading vowels at word-start behave like a-family carriers
             mv = match_leading_vowel_as_a_family(wraw, pos)
             if mv is not None:
                 key, tok, klen = mv
@@ -560,41 +625,41 @@ def decode_latin_word_to_candidates(
                         reasons + [f"leading_vowel={key}->{tok}"])
                     progressed = True
                     continue
+
             matched_any = False
 
-            # (1) Standard base matching (longest-match because BASES ordered)
-            # for base in BASES:
-            #     if wlow.startswith(base, pos):
-            #         matched_any = True
-            #         b_end = pos + len(base)
-
-            #         # outer Latin-Std: no explicit variant digits here; variants are encoded in the base token itself (hx/hxx/cxx/etc.)
-            #         var = ""
-            #         base_score = score + 0.35
-            #         base_reasons = reasons + [f"base={base}"]
-
-            #         if emit_base_step(new_beam, b_end, base, var, base_score, base_reasons, car_str, wraw, wlow):
-            #             progressed = True
-            for base_tok in BASES:
+            # (3) Base matching 
+            for base_tok in bases:
                 if wlow.startswith(base_tok, pos):
                     matched_any = True
                     b_end = pos + len(base_tok)
 
-                    # Map Latin base token -> CAR base (+ forced variant if needed)
                     forced_var = ""
+
+                    # Map outer token -> CAR base (+ forced variant)
                     if base_tok in LATIN_BASE_TO_CAR:
                         car_base, forced_var = LATIN_BASE_TO_CAR[base_tok]
+                        var = forced_var
+                        base_score = score + 0.35
+                        base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
                     else:
-                        car_base = base_tok  # plain bases
-
-                    var = forced_var  # outer layer encodes variants in the token itself
-                    base_score = score + 0.35
-                    base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
+                        # plain bases and (optional) aliases:
+                        if enable_aliases and base_tok in COMMON_BASE_ALIASES:
+                            car_base = COMMON_BASE_ALIASES[base_tok]
+                            var = ""
+                            # slight penalty so alias parses are less preferred within this decode run
+                            base_score = score + 0.35 - (0.10 + 0.10 * (1.0 - habit_strength))
+                            base_reasons = reasons + [f"alias_base={base_tok}->{car_base}"]
+                        else:
+                            car_base = base_tok
+                            var = ""
+                            base_score = score + 0.35
+                            base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
 
                     if emit_base_step(new_beam, b_end, car_base, var, base_score, base_reasons, car_str, wraw, wlow):
                         progressed = True
+
             if not matched_any:
-                # Unknown character inside LAT chunk: skip (penalize) and continue.
                 new_beam.append((pos + 1, car_str, score - 1.5, reasons + [f"skipped:{wlow[pos]}"]))
                 progressed = True
 
@@ -631,7 +696,6 @@ def score_to_confidence(scores: List[float]) -> Tuple[float, List[float]]:
     return normed[0], normed
 
 
-# ---- Main normalize function ----
 def normalize(text: str, options: Optional[Dict] = None) -> Dict:
     car_to_am, am_to_car = load_car_maps()
 
@@ -652,8 +716,9 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
     if max_alts < 0:
         max_alts = 0
 
-    hs = float(options.get("habit_strength", 0.0))
-    hs = max(0.0, min(1.0, hs))
+
+    hs_alt = float(options.get("habit_strength", 0.85))
+    hs_alt = max(0.0, min(1.0, hs_alt))
 
     for sp in spans:
         if sp.kind == "ETH":
@@ -661,28 +726,30 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
             span_meta.append({"kind": "ETH", "text": sp.text})
 
         elif sp.kind == "LAT":
-            # Keep underscore and apostrophe in Latin “word” chunks:
             chunks = re.findall(r"[A-Za-z'_]+|[^A-Za-z'_]+", sp.text)
             for chunk in chunks:
                 if re.fullmatch(r"[A-Za-z'_]+", chunk):
-                    cand = decode_latin_word_to_candidates(
+                    ## PASS 1: standard case only (always the best option) 
+                    cand_std = decode_latin_word_to_candidates(
                         chunk,
                         car_to_am,
                         latin_mode=latin_mode,
-                        habit_strength=hs,
+                        habit_strength=0.0,
+                        enable_habits=False,
+                        enable_aliases=False,
                     )
 
-                    if not cand:
+                    if not cand_std:
                         out_text_parts.append(chunk)
                         span_meta.append({"kind": "LAT", "text": chunk, "decoded": False})
                         warnings.append("latin_decode_failed")
                         overall_conf *= 0.5
                         continue
 
-                    scores = [c.score for c in cand]
-                    best_conf, confs = score_to_confidence(scores)
+                    scores_std = [c.score for c in cand_std]
+                    best_conf, confs_std = score_to_confidence(scores_std)
 
-                    best = cand[0]
+                    best = cand_std[0]
                     decoded = try_decode_car_concatenation(best.car, car_to_am)
                     if decoded is None:
                         out_text_parts.append(chunk)
@@ -699,24 +766,54 @@ def normalize(text: str, options: Optional[Dict] = None) -> Dict:
                         "best_car": best.car,
                         "confidence": best_conf,
                         "reasons": best.reasons,
-                        "num_alternatives": max(0, len(cand) - 1),
+                        "num_alternatives": 0,  # we will count below (alts only)
                     })
+                    overall_conf *= min(1.0, best_conf)
 
-                    if return_alts and len(cand) > 1 and max_alts > 0:
-                        for idx, c in enumerate(cand[1:]):
+                    # ---- PASS 2: options based on (habits + aliases) ----
+                    if return_alts and max_alts > 0:
+                        cand_alt = decode_latin_word_to_candidates(
+                            chunk,
+                            car_to_am,
+                            latin_mode=latin_mode,
+                            habit_strength=hs_alt,
+                            enable_habits=True,
+                            enable_aliases=True,
+                        )
+
+                        # Convert to Ethiopic and collect distinct alternatives
+                        # excluding the standard output
+                        seen_am = {decoded}
+                        alt_items: List[Tuple[str, str, float, str]] = []
+
+                        scores_alt = [c.score for c in cand_alt] if cand_alt else []
+                        _, confs_alt = score_to_confidence(scores_alt)
+
+                        for idx, c in enumerate(cand_alt):
+                            alt_dec = try_decode_car_concatenation(c.car, car_to_am)
+                            if not alt_dec or alt_dec in seen_am:
+                                continue
+                            seen_am.add(alt_dec)
+                            alt_conf = confs_alt[idx] if idx < len(confs_alt) else 0.0
+                            alt_items.append((alt_dec, c.car, alt_conf, ";".join(c.reasons)))
+
+                        # trim and append globally
+                        for alt_dec, car, alt_conf, reason in alt_items:
                             if len(alternatives_accum) >= max_alts:
                                 break
-                            alt_dec = try_decode_car_concatenation(c.car, car_to_am)
-                            if alt_dec is None:
-                                continue
                             alternatives_accum.append({
                                 "text_am": alt_dec,
-                                "car": c.car,
-                                "confidence": confs[idx + 1] if idx + 1 < len(confs) else 0.0,
-                                "reason": ";".join(c.reasons),
+                                "car": car,
+                                "confidence": alt_conf,
+                                "reason": reason,
                                 "source": chunk,
                             })
-                        overall_conf *= min(1.0, best_conf)
+
+                        # update meta count for this chunk
+                        span_meta[-1]["num_alternatives"] = max(
+                            0,
+                            min(max_alts, len(alt_items))
+                        )
 
                 else:
                     out_text_parts.append(chunk)

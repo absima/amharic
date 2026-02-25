@@ -1,4 +1,3 @@
-# tools/latin_std.py
 from __future__ import annotations
 
 import re
@@ -56,7 +55,6 @@ def parse_car_prefix(s: str) -> tuple[list[CarToken], int]:
     return tokens, i
 
 
-# Attached vowel rendering for consonant families (outer Latin-Std)
 ORDER_TO_LATIN = {
     "1": "e",
     "2": "u",
@@ -68,7 +66,6 @@ ORDER_TO_LATIN = {
     "8": "oa",  # order-8 labialized
 }
 
-# a-family carriers rendered as underscore carriers (outer Latin-Std)
 A_ORDER_TO_CARRIER = {
     "1": "_a",   # አ
     "2": "_u",   # ኡ
@@ -79,8 +76,6 @@ A_ORDER_TO_CARRIER = {
     "7": "_o",   # ኦ
 }
 
-# Base -> Latin-Std rendering (deterministic, case-free).
-# Only include bases that differ from their literal base string.
 BASE_TO_LATIN_STD = {
     "kh":  "kx",   # ኸ
     "ny":  "nx",   # ኘ
@@ -109,18 +104,9 @@ def ethiopic_punct_to_ascii(s: str) -> str:
 
 
 def car_to_latin_std(car: str) -> str:
-    """
-    Deterministic CAR -> Latin-Std rendering (outer layer, case-free).
 
-    - consonant families render as: <base_token><vowel_token?>
-    - a-family carriers render as: _a/_u/_i/_aa/_ei/_/_o
-    - order8 renders as "oa" suffix
-    - variant families are rendered using x/xx in the base token:
-        h1 -> hx, h2 -> hxx, s1 -> sx, ts'1 -> cxx, a1 -> ax
-    """
     parts: List[str] = []
 
-    # Split into: [CAR-ish runs] or [everything else]
     chunks = re.findall(r"[A-Za-z'0-9]+|[^A-Za-z'0-9]+", car)
 
     for chunk in chunks:
@@ -128,7 +114,6 @@ def car_to_latin_std(car: str) -> str:
             parts.append(chunk)
             continue
 
-        # Peel off leading/trailing quote marks (not CAR apostrophes)
         lead_quotes = ""
         trail_quotes = ""
         while len(chunk) >= 2 and chunk[0] == "'" and chunk[1].isalpha():
@@ -161,8 +146,7 @@ def car_to_latin_std(car: str) -> str:
                 parts.append(carrier)
                 continue
 
-            # Variant families rendered as distinct outer base tokens
-            # (These are driven by your CAR tables: base+variant)
+
             if t.base == "h" and t.variant == "1":
                 base_render = "hx"
                 vowel = ORDER_TO_LATIN[t.order]
@@ -189,7 +173,6 @@ def car_to_latin_std(car: str) -> str:
                 parts.append(base_render + vowel)
                 continue
 
-            # Normal consonant families
             base_render = BASE_TO_LATIN_STD.get(t.base, t.base)
             vowel = ORDER_TO_LATIN.get(t.order)
             if vowel is None:
