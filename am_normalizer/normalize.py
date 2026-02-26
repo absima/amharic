@@ -247,9 +247,9 @@ def segment_scripts(s: str) -> List[Span]:
 # IMPORTANT: longest-match matters; keep longer tokens first.
 BASES_STD = [
     # very long first
-    "cxx", "chx", "shx", "hxx",
+    "hxxx", "cxx", "chx", "shx", "hxx",
     # x-marked bases
-    "kx", "nx", "zx", "cx", "px", "tx", "hx", "sx", "ax",
+    "kx", "nx", "zx", "cx", "px", "tx", "sx", "ax", #, "hx"
     # regular digraphs that are part of the standard (e.g., ቸ)
     "ch",
     # singles...
@@ -260,9 +260,9 @@ BASES_STD = [
 # ሸ=sh, ኘ=ny/gn, ኸ=kh, ዠ=zh, ጸ=ts (no apostrophe)
 BASES_ALT = [
     # very long first
-    "cxx", "chx", "shx", "hxx",
+    "hxxx", "cxx", "chx", "shx", "hxx",
     # x-marked bases
-    "kx", "nx", "zx", "cx", "px", "tx", "hx", "sx", "ax",
+    "kx", "nx", "zx", "cx", "px", "tx", "sx", "ax", # "hx"
     # aliases (must come before singles)
     "kh", "ny", "gn", "zh", "ts", "sh",
     # regular digraphs
@@ -307,8 +307,8 @@ LATIN_BASE_TO_CAR = {
     "shx": ("sh",  ""),
 
     # variant families
-    "hx":  ("h",   "1"),  # ሐ
-    "hxx": ("h",   "2"),  # ኀ
+    "hxx":  ("h",   "1"),  # ሐ
+    "hxxx": ("h",   "2"),  # ኀ
     "sx":  ("s",   "1"),  # ሠ
     "ax":  ("a",   "1"),  # ዐ (a-family variant treated as consonant family)
     "cxx": ("ts'", "1"),  # ፀ (variant of ጸ in your tables)

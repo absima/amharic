@@ -148,12 +148,12 @@ def car_to_latin_std(car: str) -> str:
 
 
             if t.base == "h" and t.variant == "1":
-                base_render = "hx"
+                base_render = "hxx"
                 vowel = ORDER_TO_LATIN[t.order]
                 parts.append(base_render + vowel)
                 continue
             if t.base == "h" and t.variant == "2":
-                base_render = "hxx"
+                base_render = "hxxx"
                 vowel = ORDER_TO_LATIN[t.order]
                 parts.append(base_render + vowel)
                 continue
