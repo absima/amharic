@@ -7,8 +7,8 @@ const API_BASE_RAW = import.meta.env.VITE_API_BASE_URL;
 const API_BASE = API_BASE_RAW.endsWith("/") ? API_BASE_RAW : API_BASE_RAW + "/";
 const NORMALIZE_URL = API_BASE + "normalize";
 
-const DEFAULT_LAT = "selam!\nenkoan dehna metxu!";
-const DEFAULT_AM = "ሰላም!\nእንኳን ደህና መጡ!";
+const DEFAULT_LAT = "";//"selam!\n_nkoan dehna metxu!";
+const DEFAULT_AM = ""; //"ሰላም!\nእንኳን ደህና መጡ!";
 
 // -input sizing 
 const MAX_CHARS = 500; // hard cap
@@ -414,7 +414,7 @@ export default function App() {
             value={latinText}
             onChange={(e) => latinIsInput && setLatinText(e.target.value)}
             readOnly={!latinIsInput}
-            placeholder={latinIsInput ? "Type Latin…\ne.g. selam, enkwan, l_u" : ""}
+            placeholder={latinIsInput ? "Type Latin…\ne.g. selam! _nkoan dehna metxu!" : ""}
             style={{ resize: "none" }}
           />
 
@@ -495,7 +495,7 @@ export default function App() {
                 value={finalAm}
                 onChange={(e) => amIsInput && setAmText(e.target.value)}
                 readOnly={!amIsInput}
-                placeholder={amIsInput ? "Paste Ethiopic text…\ne.g. ሰላም" : ""}
+                placeholder={amIsInput ? "Paste Amharic text…\ne.g. ሰላም! እንኳን ደህና መጡ!" : ""}
                 style={{ resize: "none" }}
               />
 

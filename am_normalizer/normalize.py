@@ -628,10 +628,54 @@ def decode_latin_word_to_candidates(
 
             matched_any = False
 
-            # (3) Base matching 
+            # # (3) Base matching 
+            # for base_tok in bases:
+            #     if wlow.startswith(base_tok, pos):
+            #         matched_any = True
+            #         b_end = pos + len(base_tok)
+
+            #         forced_var = ""
+
+            #         # Map outer token -> CAR base (+ forced variant)
+            #         if base_tok in LATIN_BASE_TO_CAR:
+            #             car_base, forced_var = LATIN_BASE_TO_CAR[base_tok]
+            #             var = forced_var
+            #             base_score = score + 0.35
+            #             base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
+            #         else:
+            #             # plain bases and (optional) aliases:
+            #             if enable_aliases and base_tok in COMMON_BASE_ALIASES:
+            #                 car_base = COMMON_BASE_ALIASES[base_tok]
+            #                 var = ""
+            #                 # slight penalty so alias parses are less preferred within this decode run
+            #                 base_score = score + 0.35 - (0.10 + 0.10 * (1.0 - habit_strength))
+            #                 base_reasons = reasons + [f"alias_base={base_tok}->{car_base}"]
+            #             else:
+            #                 car_base = base_tok
+            #                 var = ""
+            #                 base_score = score + 0.35
+            #                 base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
+
+            #         if emit_base_step(new_beam, b_end, car_base, var, base_score, base_reasons, car_str, wraw, wlow):
+            #             progressed = True
+
+            # (3) Base matching with longest-match gating
+            matches = []
+            max_len = 0
+
             for base_tok in bases:
                 if wlow.startswith(base_tok, pos):
-                    matched_any = True
+                    L = len(base_tok)
+                    if L > max_len:
+                        max_len = L
+                        matches = [base_tok]
+                    elif L == max_len:
+                        matches.append(base_tok)
+
+            if matches:
+                matched_any = True
+
+                for base_tok in matches:
                     b_end = pos + len(base_tok)
 
                     forced_var = ""
@@ -642,12 +686,12 @@ def decode_latin_word_to_candidates(
                         var = forced_var
                         base_score = score + 0.35
                         base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
+
                     else:
-                        # plain bases and (optional) aliases:
+                        # plain bases and (optional) aliases
                         if enable_aliases and base_tok in COMMON_BASE_ALIASES:
                             car_base = COMMON_BASE_ALIASES[base_tok]
                             var = ""
-                            # slight penalty so alias parses are less preferred within this decode run
                             base_score = score + 0.35 - (0.10 + 0.10 * (1.0 - habit_strength))
                             base_reasons = reasons + [f"alias_base={base_tok}->{car_base}"]
                         else:
@@ -656,7 +700,11 @@ def decode_latin_word_to_candidates(
                             base_score = score + 0.35
                             base_reasons = reasons + [f"base={base_tok}->{car_base}{var}"]
 
-                    if emit_base_step(new_beam, b_end, car_base, var, base_score, base_reasons, car_str, wraw, wlow):
+                    if emit_base_step(
+                        new_beam, b_end, car_base, var,
+                        base_score, base_reasons,
+                        car_str, wraw, wlow
+                    ):
                         progressed = True
 
             if not matched_any:
