@@ -1,4 +1,4 @@
-
+// App.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import TypingHelp from "./TypingHelp";
 import "./App.css";
@@ -7,14 +7,14 @@ const API_BASE_RAW = import.meta.env.VITE_API_BASE_URL;
 const API_BASE = API_BASE_RAW.endsWith("/") ? API_BASE_RAW : API_BASE_RAW + "/";
 const NORMALIZE_URL = API_BASE + "normalize";
 
-const DEFAULT_LAT = "";//"selam!\n_nkoan dehna metxu!";
-const DEFAULT_AM = ""; //"ሰላም!\nእንኳን ደህና መጡ!";
+const DEFAULT_LAT = "";
+const DEFAULT_AM = "";
 
-// -input sizing 
+// -input sizing
 const MAX_CHARS = 500; // hard cap
 const AUTO_RESIZE_UP_TO = 200; // autosize up to this; beyond -> lock height + scroll
 const MIN_ROWS = 2;
-const MAX_ROWS = 10; 
+const MAX_ROWS = 10;
 
 const HABIT_STRENGTH = 0.85;
 
@@ -27,7 +27,6 @@ async function fetchJson(url, options) {
 async function copyToClipboard(text) {
   await navigator.clipboard.writeText(text);
 }
-
 
 function tokenizeForReview(text) {
   const re = /(\s+)|([\p{L}\p{N}'_]+)|([^\s\p{L}\p{N}'_]+)/gu;
@@ -49,7 +48,6 @@ function extractWords(text) {
     .filter((t) => t.kind === "word")
     .map((t) => t.text);
 }
-
 
 function useAutosizeWithThresholdLock(
   ref,
@@ -77,9 +75,17 @@ function useAutosizeWithThresholdLock(
     const borderBottom = parseFloat(cs.borderBottomWidth || "0") || 0;
 
     const minH =
-      minRows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
+      minRows * lineHeight +
+      paddingTop +
+      paddingBottom +
+      borderTop +
+      borderBottom;
     const maxH =
-      maxRows * lineHeight + paddingTop + paddingBottom + borderTop + borderBottom;
+      maxRows * lineHeight +
+      paddingTop +
+      paddingBottom +
+      borderTop +
+      borderBottom;
 
     // if we are at/under threshold -> autosize and clear any old lock.
     if (len <= threshold) {
@@ -345,7 +351,8 @@ export default function App() {
     const src = tok.text;
     const choices = [{ label: "Current", text: src }];
 
-    if (src.includes("።")) choices.push({ label: "Use .", text: src.replaceAll("።", ".") });
+    if (src.includes("።"))
+      choices.push({ label: "Use .", text: src.replaceAll("።", ".") });
     if (src.includes(".")) {
       choices.push({ label: "Use ።", text: src.replaceAll(".", "።") });
       choices.push({ label: "Keep .", text: src });
@@ -403,7 +410,7 @@ export default function App() {
 
       <div className="grid-2">
         {/* LEFT: Latin box */}
-        <div className="panel">
+        <div className="panel io-panel">
           <h3>{latinLabel}</h3>
 
           <textarea
@@ -418,37 +425,43 @@ export default function App() {
             style={{ resize: "none" }}
           />
 
-          {latinIsInput && (
-            <div className="hintline">
-              {latinCountLabel}
-              {latinOver && (
+          <div className="io-footer">
+            <div className="hintline hintline--slot">
+              {latinIsInput ? (
                 <>
-                  {" "}
-                  · fixed display size after {AUTO_RESIZE_UP_TO} chars (scroll enabled)
+                  {latinCountLabel}
+                  {latinOver && (
+                    <>
+                      {" "}
+                      · fixed display size after {AUTO_RESIZE_UP_TO} chars (scroll enabled)
+                    </>
+                  )}
                 </>
+              ) : (
+                "\u00A0"
               )}
             </div>
-          )}
 
-          <div className="button-row">
-            {latinIsInput ? (
-              <button onClick={runNormalize} disabled={loading || !latinText.trim()}>
-                {loading ? "Running…" : "Run"}
-              </button>
-            ) : (
-              <button
-                className="secondary"
-                onClick={async () => await copyToClipboard(latinText)}
-                disabled={!latinText.trim()}
-              >
-                Copy
-              </button>
-            )}
+            <div className="button-row io-actions">
+              {latinIsInput ? (
+                <button onClick={runNormalize} disabled={loading || !latinText.trim()}>
+                  {loading ? "Running…" : "Run"}
+                </button>
+              ) : (
+                <button
+                  className="secondary"
+                  onClick={async () => await copyToClipboard(latinText)}
+                  disabled={!latinText.trim()}
+                >
+                  Copy
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* RIGHT: Amharic box */}
-        <div className="panel">
+        <div className="panel io-panel">
           <h3>{amLabel}</h3>
 
           {mode === "lat_to_am" && reviewMode ? (
@@ -486,21 +499,23 @@ export default function App() {
               )}
             </div>
           ) : (
-            <>
-              <textarea
-                ref={amTaRef}
-                className="text-surface"
-                rows={MIN_ROWS}
-                maxLength={MAX_CHARS}
-                value={finalAm}
-                onChange={(e) => amIsInput && setAmText(e.target.value)}
-                readOnly={!amIsInput}
-                placeholder={amIsInput ? "Paste Amharic text…\ne.g. ሰላም! እንኳን ደህና መጡ!" : ""}
-                style={{ resize: "none" }}
-              />
+            <textarea
+              ref={amTaRef}
+              className="text-surface"
+              rows={MIN_ROWS}
+              maxLength={MAX_CHARS}
+              value={finalAm}
+              onChange={(e) => amIsInput && setAmText(e.target.value)}
+              readOnly={!amIsInput}
+              placeholder={amIsInput ? "Paste Amharic text…\ne.g. ሰላም! እንኳን ደህና መጡ!" : ""}
+              style={{ resize: "none" }}
+            />
+          )}
 
-              {amIsInput && (
-                <div className="hintline">
+          <div className="io-footer">
+            <div className="hintline hintline--slot">
+              {amIsInput ? (
+                <>
                   {amCountLabel}
                   {amOver && (
                     <>
@@ -508,60 +523,62 @@ export default function App() {
                       · fixed display size after {AUTO_RESIZE_UP_TO} chars (scroll enabled)
                     </>
                   )}
-                </div>
+                </>
+              ) : (
+                "\u00A0"
               )}
-            </>
-          )}
+            </div>
 
-          <div className="button-row">
-            {amIsInput ? (
-              <button onClick={runNormalize} disabled={loading || !amText.trim()}>
-                {loading ? "Running…" : "Run"}
-              </button>
-            ) : (
-              <>
-                <button
-                  className="secondary"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    await copyToClipboard(finalAm);
-                  }}
-                  disabled={!finalAm.trim()}
-                >
-                  Copy
+            <div className="button-row io-actions">
+              {amIsInput ? (
+                <button onClick={runNormalize} disabled={loading || !amText.trim()}>
+                  {loading ? "Running…" : "Run"}
                 </button>
+              ) : (
+                <>
+                  <button
+                    className="secondary"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      await copyToClipboard(finalAm);
+                    }}
+                    disabled={!finalAm.trim()}
+                  >
+                    Copy
+                  </button>
 
-                {mode === "lat_to_am" && (
-                  <>
-                    {!reviewMode ? (
-                      <button
-                        className="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (outTokens == null) setOutTokens(tokenizeForReview(finalAm));
-                          setReviewMode(true);
-                        }}
-                        disabled={!finalAm.trim()}
-                      >
-                        Enter review
-                      </button>
-                    ) : (
-                      <button
-                        className="secondary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          closePopover();
-                          setReviewMode(false);
-                          setAmText(finalAm);
-                        }}
-                      >
-                        Exit review
-                      </button>
-                    )}
-                  </>
-                )}
-              </>
-            )}
+                  {mode === "lat_to_am" && (
+                    <>
+                      {!reviewMode ? (
+                        <button
+                          className="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (outTokens == null) setOutTokens(tokenizeForReview(finalAm));
+                            setReviewMode(true);
+                          }}
+                          disabled={!finalAm.trim()}
+                        >
+                          Enter review
+                        </button>
+                      ) : (
+                        <button
+                          className="secondary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            closePopover();
+                            setReviewMode(false);
+                            setAmText(finalAm);
+                          }}
+                        >
+                          Exit review
+                        </button>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </div>
           </div>
 
           {popover.open && (reviewOne || reviewPunct) ? (
@@ -651,3 +668,4 @@ export default function App() {
     </div>
   );
 }
+
